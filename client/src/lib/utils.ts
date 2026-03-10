@@ -16,6 +16,13 @@ export function formatCurrency(amount: number, currency = "USD"): string {
   if (currency === "VND") {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(amount);
   }
+  if (currency === "compact") {
+    if (amount >= 1_000_000_000_000) return `$${(amount / 1_000_000_000_000).toFixed(2)}T`;
+    if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(1)}K`;
+    return `$${amount.toFixed(2)}`;
+  }
   if (amount < 0.01) return `$${amount.toFixed(6)}`;
   if (amount < 1) return `$${amount.toFixed(4)}`;
   if (amount > 1000) return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;

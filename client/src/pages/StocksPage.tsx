@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
+import NewsSection from "@/components/NewsSection";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -196,7 +197,6 @@ function StockRow({ symbol, data, onRemove, onSelect, selected }: {
           <Skeleton className="h-8 w-16" />
         )}
       </div>
-
       <button
         data-testid={`btn-remove-stock-${symbol}`}
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
@@ -344,7 +344,7 @@ function DetailPanel({ item, type, onClose }: {
   const shortName = displayName.includes(" - ") ? displayName.split(" - ")[0] : displayName;
 
   return (
-    <div className="bg-card border border-card-border rounded-2xl p-5 mt-4" data-testid="panel-detail">
+    <div className="bg-card border border-card-border rounded-2xl p-5 mb-4" data-testid="panel-detail">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -554,17 +554,8 @@ export default function StocksPage() {
         )}
       </div>
 
-      {/* Detail panel (appears below indices or stocks section) */}
-      {selectedData && (
-        <DetailPanel
-          item={selectedData}
-          type={selectedItem!.type}
-          onClose={() => setSelectedItem(null)}
-        />
-      )}
-
-      {/* Pinned Stocks */}
-      <div className="mt-6">
+      {/* Pinned Stocks - moved ABOVE detail panel/chart */}
+      <div className="mb-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-foreground">Cổ phiếu quan tâm</h2>
           <AddStockInput existing={pinnedSymbols} onAdd={addStock} />
@@ -592,6 +583,22 @@ export default function StocksPage() {
               })}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Detail panel (appears below stocks list) */}
+      {selectedData && (
+        <DetailPanel
+          item={selectedData}
+          type={selectedItem!.type}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+
+      {/* News */}
+      <div className="mt-6">
+        <div className="bg-card border border-card-border rounded-xl p-4">
+          <NewsSection endpoint="/api/news/stocks" title="Tin tức thị trường cổ phiếu" maxItems={8} />
         </div>
       </div>
     </div>

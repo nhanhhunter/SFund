@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Settings, X } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Settings, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
@@ -9,19 +9,38 @@ import NewsSection from "@/components/NewsSection";
 import { queryClient } from "@/lib/queryClient";
 
 const ALL_INDEX_CARDS = [
-  { key: "vnIndex", label: "VN-Index" },
-  { key: "hnxIndex", label: "HNX-Index" },
-  { key: "upcom", label: "UPCOM" },
-  { key: "vn30", label: "VN30" },
-  { key: "hnx30", label: "HNX30" },
-  { key: "vn100", label: "VN100" },
+  { key: "vnIndex", label: "VN-Index", symbol: "VNINDEX", type: "index" as const },
+  { key: "hnxIndex", label: "HNX-Index", symbol: "HNXINDEX", type: "index" as const },
+  { key: "upcom", label: "UPCOM", symbol: "UPCOMINDEX", type: "index" as const },
+  { key: "vn30", label: "VN30", symbol: "VN30", type: "index" as const },
+  { key: "hnx30", label: "HNX30", symbol: "HNX30", type: "index" as const },
+  { key: "vn100", label: "VN100", symbol: "VN100", type: "index" as const },
 ];
 
 const ALL_COMMODITY_CARDS = [
-  { key: "gold_vnd", label: "Vàng (VND/Lượng)" },
-  { key: "gold_usd", label: "Vàng (USD/Oz)" },
-  { key: "wti", label: "Dầu WTI (USD/bbl)" },
-  { key: "brent", label: "Dầu Brent (USD/bbl)" },
+  { key: "gold_vnd", label: "Vàng (VND/Lượng)", symbol: "SJC_VND", type: "gold" as const },
+  { key: "gold_usd", label: "Vàng (USD/Oz)", symbol: "XAU", type: "gold" as const },
+  { key: "wti", label: "Dầu WTI (USD/bbl)", symbol: "WTI", type: "oil" as const },
+  { key: "brent", label: "Dầu Brent (USD/bbl)", symbol: "BRENT", type: "oil" as const },
+];
+
+const DEFAULT_CRYPTO_IDS = ["bitcoin", "ethereum"];
+
+const CRYPTO_NAMES: Record<string, string> = {
+  bitcoin: "BTC", ethereum: "ETH", binancecoin: "BNB", solana: "SOL",
+  ripple: "XRP", cardano: "ADA", dogecoin: "DOGE", tron: "TRX",
+  polkadot: "DOT", avalanche: "AVAX", chainlink: "LINK", uniswap: "UNI",
+};
+
+const ALL_CRYPTO_OPTIONS = [
+  { id: "bitcoin", label: "Bitcoin (BTC)" },
+  { id: "ethereum", label: "Ethereum (ETH)" },
+  { id: "binancecoin", label: "Binance Coin (BNB)" },
+  { id: "solana", label: "Solana (SOL)" },
+  { id: "ripple", label: "Ripple (XRP)" },
+  { id: "cardano", label: "Cardano (ADA)" },
+  { id: "dogecoin", label: "Dogecoin (DOGE)" },
+  { id: "tron", label: "TRON (TRX)" },
 ];
 
 function useLocalStorage<T>(key: string, def: T) {
@@ -32,10 +51,13 @@ function useLocalStorage<T>(key: string, def: T) {
   return [v, set] as const;
 }
 
-function IndexCard({ label, value, change, changePercent, loading }: {
+// Mini card with embedded chart for indices/commodities
+function MiniChartCard({ label, value, change, changePercent, loading, symbol, chartType, chartCurrentPrice }: {
   label: string; value: string; change: number; changePercent: number; loading: boolean;
+  symbol: string; chartType: "index" | "gold" | "oil";
+  chartCurrentPrice?: number;
 }) {
-  if (loading) return <Skeleton className="h-24 rounded-xl" />;
+  if (loading) return <Skeleton className="h-32 rounded-xl" />;
   const up = changePercent >= 0;
   return (
     <div className="bg-card border border-card-border rounded-xl p-4 hover:shadow-sm transition-shadow">
@@ -46,25 +68,29 @@ function IndexCard({ label, value, change, changePercent, loading }: {
           {formatPercent(changePercent)}
         </span>
       </div>
-      <p className="text-xl font-bold text-foreground">{value}</p>
-      <p className={cn("text-xs mt-0.5", getChangeColor(change))}>
+      <p className="text-xl font-bold text-foreground mb-0.5">{value}</p>
+      <p className={cn("text-xs mb-2", getChangeColor(change))}>
         {change >= 0 ? "+" : ""}{typeof change === "number" ? change.toFixed(2) : change}
       </p>
+      <PriceChart
+        type={chartType}
+        symbol={symbol}
+        days={7}
+        currentPrice={chartCurrentPrice}
+        mini
+        height={48}
+      />
     </div>
   );
 }
 
 function CryptoMiniCard({ id, data }: { id: string; data: any }) {
-  const names: Record<string, string> = {
-    bitcoin: "BTC", ethereum: "ETH", binancecoin: "BNB", solana: "SOL",
-    ripple: "XRP", cardano: "ADA", dogecoin: "DOGE", tron: "TRX",
-  };
   if (!data) return <Skeleton className="h-16 rounded-xl" />;
   const change = data.usd_24h_change || 0;
   return (
     <div className="bg-card border border-card-border rounded-xl px-3 py-2.5 hover:shadow-sm transition-shadow">
       <div className="flex justify-between items-center">
-        <span className="text-xs font-semibold text-foreground">{names[id] || id}</span>
+        <span className="text-xs font-semibold text-foreground">{CRYPTO_NAMES[id] || id.toUpperCase()}</span>
         <span className={cn("text-xs font-medium", getChangeColor(change))}>
           {formatPercent(change)}
         </span>
@@ -74,21 +100,23 @@ function CryptoMiniCard({ id, data }: { id: string; data: any }) {
   );
 }
 
-function SettingsPanel({ visibleCards, onToggle, onClose }: {
+function SettingsPanel({ visibleCards, onToggle, cryptoIds, onCryptoToggle, onClose }: {
   visibleCards: Record<string, boolean>;
   onToggle: (key: string) => void;
+  cryptoIds: string[];
+  onCryptoToggle: (id: string) => void;
   onClose: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <div className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-bold">Tùy chỉnh dashboard</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Chọn các chỉ số muốn hiển thị</p>
-        <div className="space-y-1 mb-5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Chỉ số VN</p>
+
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Chỉ số VN</p>
+        <div className="space-y-1 mb-4">
           {ALL_INDEX_CARDS.map(c => (
             <label key={c.key} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted cursor-pointer">
               <input
@@ -101,7 +129,10 @@ function SettingsPanel({ visibleCards, onToggle, onClose }: {
               <span className="text-sm">{c.label}</span>
             </label>
           ))}
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-3 mb-2">Hàng hóa</p>
+        </div>
+
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Hàng hóa</p>
+        <div className="space-y-1 mb-4">
           {ALL_COMMODITY_CARDS.map(c => (
             <label key={c.key} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted cursor-pointer">
               <input
@@ -115,6 +146,23 @@ function SettingsPanel({ visibleCards, onToggle, onClose }: {
             </label>
           ))}
         </div>
+
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Tiền điện tử</p>
+        <div className="space-y-1 mb-4">
+          {ALL_CRYPTO_OPTIONS.map(c => (
+            <label key={c.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cryptoIds.includes(c.id)}
+                onChange={() => onCryptoToggle(c.id)}
+                className="rounded"
+                data-testid={`toggle-crypto-${c.id}`}
+              />
+              <span className="text-sm">{c.label}</span>
+            </label>
+          ))}
+        </div>
+
         <Button onClick={onClose} className="w-full">Đóng</Button>
       </div>
     </div>
@@ -124,10 +172,16 @@ function SettingsPanel({ visibleCards, onToggle, onClose }: {
 export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [visibleCards, setVisibleCards] = useLocalStorage<Record<string, boolean>>("dashboard_visible_cards", {});
+  const [cryptoIds, setCryptoIds] = useLocalStorage<string[]>("dashboard_crypto_ids", DEFAULT_CRYPTO_IDS);
 
   const isVisible = (key: string) => visibleCards[key] !== false;
   const toggleCard = (key: string) => {
     setVisibleCards({ ...visibleCards, [key]: !isVisible(key) });
+  };
+  const toggleCrypto = (id: string) => {
+    setCryptoIds(
+      cryptoIds.includes(id) ? cryptoIds.filter((x: string) => x !== id) : [...cryptoIds, id]
+    );
   };
 
   const { data: overview, isLoading, dataUpdatedAt } = useQuery<any>({
@@ -135,8 +189,19 @@ export default function Dashboard() {
     refetchInterval: 60_000,
   });
 
+  const cryptoIdStr = cryptoIds.join(",");
+  const { data: cryptoData } = useQuery<Record<string, any>>({
+    queryKey: ["/api/prices/crypto", cryptoIdStr],
+    queryFn: () => fetch(`/api/prices/crypto?ids=${cryptoIdStr}`).then(r => r.json()),
+    enabled: cryptoIds.length > 0,
+    refetchInterval: 60_000,
+  });
+
   const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("vi-VN") : "--:--";
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/market-overview"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/market-overview"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/prices/crypto"] });
+  };
 
   const indices: Record<string, any> = {
     vnIndex: overview?.vnIndex,
@@ -149,43 +214,63 @@ export default function Dashboard() {
 
   const gold = overview?.gold?.XAU;
   const oil = overview?.oil;
-  const crypto = overview?.crypto || {};
+  const crypto = cryptoData || overview?.crypto || {};
 
   const visibleIndexCards = ALL_INDEX_CARDS.filter(c => isVisible(c.key));
   const visibleCommodityCards = ALL_COMMODITY_CARDS.filter(c => isVisible(c.key));
 
-  function getIndexValue(key: string) {
-    const d = indices[key];
-    return { value: d ? d.price.toFixed(2) : "--", change: d?.change || 0, changePercent: d?.changePercent || 0 };
+  function getIndexCardProps(c: typeof ALL_INDEX_CARDS[0]) {
+    const d = indices[c.key];
+    return {
+      label: c.label,
+      value: d ? d.price.toLocaleString("vi-VN", { maximumFractionDigits: 2 }) : "--",
+      change: d?.change || 0,
+      changePercent: d?.changePercent || 0,
+      symbol: c.symbol,
+      chartType: "index" as const,
+      chartCurrentPrice: d?.price,
+    };
   }
 
-  function getCommodityCard(key: string) {
-    switch (key) {
+  function getCommodityCardProps(c: typeof ALL_COMMODITY_CARDS[0]) {
+    switch (c.key) {
       case "gold_vnd": return {
-        label: "Vàng (VND/Lượng)",
+        label: c.label,
         value: gold ? new Intl.NumberFormat("vi-VN").format(gold.priceVndLuong) : "--",
         change: gold?.change || 0,
         changePercent: gold?.changePercent || 0,
+        symbol: "SJC_VND",
+        chartType: "gold" as const,
+        chartCurrentPrice: gold?.priceVndLuong,
       };
       case "gold_usd": return {
-        label: "Vàng (USD/Oz)",
+        label: c.label,
         value: gold ? `$${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(gold.priceUsdOz)}` : "--",
         change: gold?.changePercent ? gold.priceUsdOz * 0.001 : 0,
         changePercent: gold?.changePercent || 0,
+        symbol: "XAU",
+        chartType: "gold" as const,
+        chartCurrentPrice: gold?.priceUsdOz,
       };
       case "wti": return {
-        label: "Dầu WTI (USD/bbl)",
+        label: c.label,
         value: oil?.WTI ? `$${oil.WTI.price.toFixed(2)}` : "--",
         change: oil?.WTI?.change || 0,
         changePercent: oil?.WTI?.changePercent || 0,
+        symbol: "WTI",
+        chartType: "oil" as const,
+        chartCurrentPrice: oil?.WTI?.price,
       };
       case "brent": return {
-        label: "Dầu Brent (USD/bbl)",
+        label: c.label,
         value: oil?.BRENT ? `$${oil.BRENT.price.toFixed(2)}` : "--",
         change: oil?.BRENT?.change || 0,
         changePercent: oil?.BRENT?.changePercent || 0,
+        symbol: "BRENT",
+        chartType: "oil" as const,
+        chartCurrentPrice: oil?.BRENT?.price,
       };
-      default: return { label: key, value: "--", change: 0, changePercent: 0 };
+      default: return { label: c.key, value: "--", change: 0, changePercent: 0, symbol: c.key, chartType: "gold" as const };
     }
   }
 
@@ -208,65 +293,65 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Market Indices */}
+      {/* Market Indices with mini charts */}
       {visibleIndexCards.length > 0 && (
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Chỉ số thị trường</h2>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {visibleIndexCards.map(c => {
-              const { value, change, changePercent } = getIndexValue(c.key);
-              return <IndexCard key={c.key} label={c.label} value={value} change={change} changePercent={changePercent} loading={isLoading} />;
+              const props = getIndexCardProps(c);
+              return (
+                <MiniChartCard
+                  key={c.key}
+                  loading={isLoading}
+                  {...props}
+                />
+              );
             })}
           </div>
         </section>
       )}
 
-      {/* Commodities */}
+      {/* Commodities with mini charts */}
       {visibleCommodityCards.length > 0 && (
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Hàng hóa</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {visibleCommodityCards.map(c => {
-              const { label, value, change, changePercent } = getCommodityCard(c.key);
-              return <IndexCard key={c.key} label={label} value={value} change={change} changePercent={changePercent} loading={isLoading} />;
+              const props = getCommodityCardProps(c);
+              return (
+                <MiniChartCard
+                  key={c.key}
+                  loading={isLoading}
+                  {...props}
+                />
+              );
             })}
           </div>
         </section>
       )}
 
-      {/* Crypto */}
-      <section className="mb-6">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tiền điện tử</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-          {["bitcoin", "ethereum", "binancecoin", "solana", "ripple", "cardano", "dogecoin", "tron"].map((id) => (
-            <CryptoMiniCard key={id} id={id} data={crypto[id]} />
-          ))}
-        </div>
-      </section>
-
-      {/* Charts */}
-      <section className="mb-6">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Biểu đồ VN-Index</h2>
-        <div className="bg-card border border-card-border rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-primary" />
-            <span className="font-semibold text-sm text-foreground">VN-Index 30 ngày</span>
+      {/* Crypto - only selected coins */}
+      {cryptoIds.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tiền điện tử</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {cryptoIds.map((id) => (
+              <CryptoMiniCard key={id} id={id} data={crypto[id]} />
+            ))}
           </div>
-          <PriceChart
-            type="stock"
-            symbol="VN_INDEX"
-            days={30}
-            currentPrice={overview?.vnIndex?.price || undefined}
-            height={200}
-          />
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* News */}
+      {/* News - Vietstock international finance + industry */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <NewsSection endpoint="/api/news/stocks" title="Tin tức thị trường chứng khoán" maxItems={5} />
-          <NewsSection endpoint="/api/news/crypto" title="Tin tức Crypto" maxItems={5} />
+          <div className="bg-card border border-card-border rounded-xl p-4">
+            <NewsSection endpoint="/api/news/intl-finance" title="Tài chính quốc tế" maxItems={5} />
+          </div>
+          <div className="bg-card border border-card-border rounded-xl p-4">
+            <NewsSection endpoint="/api/news/industry" title="Kinh tế - Đầu tư" maxItems={5} />
+          </div>
         </div>
       </section>
 
@@ -274,6 +359,8 @@ export default function Dashboard() {
         <SettingsPanel
           visibleCards={visibleCards}
           onToggle={toggleCard}
+          cryptoIds={cryptoIds}
+          onCryptoToggle={toggleCrypto}
           onClose={() => setShowSettings(false)}
         />
       )}

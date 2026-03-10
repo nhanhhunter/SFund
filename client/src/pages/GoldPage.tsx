@@ -10,6 +10,7 @@ import NewsSection from "@/components/NewsSection";
 import { queryClient } from "@/lib/queryClient";
 
 type Period = "1" | "7" | "30";
+type GoldType = "sjc" | "nhan";
 
 const DEFAULT_SETTINGS = {
   shippingPerOz: 0.5,
@@ -65,14 +66,14 @@ function SettingsPanel({ settings, onChange, onClose }: {
           {field("insurancePerOz", "Bảo hiểm", "$/oz")}
           {field("importTaxPct", "Thuế nhập khẩu", "%")}
           {field("processingFeePerLuong", "Phí gia công", "đ/lượng", "10000")}
-          {field("sjcPremiumPerLuong", "Phụ trội SJC", "đ/lượng", "100000")}
+          {field("sjcPremiumPerLuong", "Phụ trội SJC thực tế", "đ/lượng", "100000")}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1" onClick={onClose}>Hủy</Button>
           <Button className="flex-1" onClick={() => { onChange(local); onClose(); }}>Lưu</Button>
         </div>
         <p className="text-xs text-muted-foreground mt-3 text-center">
-          Tỷ giá USD/VND lấy từ dữ liệu thị trường
+          Tỷ giá USD/VND lấy từ Vietcombank (bán ra)
         </p>
       </div>
     </div>
@@ -81,6 +82,7 @@ function SettingsPanel({ settings, onChange, onClose }: {
 
 export default function GoldPage() {
   const [period, setPeriod] = useState<Period>("7");
+  const [goldType, setGoldType] = useState<GoldType>("sjc");
   const [showSettings, setShowSettings] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
   const [settings, setSettings] = useLocalStorage("gold_settings", DEFAULT_SETTINGS);
@@ -95,18 +97,24 @@ export default function GoldPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/prices/gold"] });
 
   const usdOz = gold?.priceUsdOz || 0;
-  const usdToVnd = gold?.usdToVnd || 26200;
+  const usdToVnd = gold?.usdToVnd || 26315;
 
   const { luongPerOz, shippingPerOz, insurancePerOz, importTaxPct, processingFeePerLuong, sjcPremiumPerLuong } = settings;
 
+  // Formula: theoretical import cost for vàng nhẫn 9999
   const giaNhanRaw = (usdOz + shippingPerOz + insurancePerOz) * (1 + importTaxPct / 100) * luongPerOz * usdToVnd + processingFeePerLuong;
   const giaNhan = Math.round(giaNhanRaw / 1000) * 1000;
+  // SJC = Nhẫn theoretical + premium
   const giaSJC = giaNhan + sjcPremiumPerLuong;
-  const chenhLech = giaSJC - giaNhan;
-  const chenhLechPct = giaNhan > 0 ? (chenhLech / giaNhan) * 100 : 0;
+
+  // Chênh lệch: SJC so với thế giới quy đổi
+  const chenhLechSJC = sjcPremiumPerLuong;
+  const chenhLechPctSJC = giaNhan > 0 ? (chenhLechSJC / giaNhan) * 100 : 0;
 
   const fmt = (v: number) => new Intl.NumberFormat("vi-VN").format(Math.round(v));
   const fmtUsd = (v: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+
+  const chartPrice = goldType === "sjc" ? giaSJC : giaNhan;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -114,7 +122,7 @@ export default function GoldPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Vàng</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · 60 giây/lần</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Tỷ giá Vietcombank</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowSettings(true)}>
@@ -127,6 +135,7 @@ export default function GoldPage() {
           </Button>
         </div>
       </div>
+
       {/* World gold + VN prices */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         {/* World gold - USD */}
@@ -147,7 +156,7 @@ export default function GoldPage() {
           <div className="mt-3 pt-3 border-t border-amber-200/60 dark:border-amber-700/30 grid grid-cols-2 gap-2 text-xs">
             <div>
               <p className="text-amber-600 dark:text-amber-400">Tỷ giá USD/VND</p>
-              <p className="font-bold text-amber-800 dark:text-amber-200">{usdToVnd.toLocaleString("vi-VN")}</p>
+              <p className="font-bold text-amber-800 dark:text-amber-200">{usdToVnd.toLocaleString("vi-VN")} (VCB bán ra)</p>
             </div>
             <div>
               <p className="text-amber-600 dark:text-amber-400">USD/Lượng</p>
@@ -156,34 +165,69 @@ export default function GoldPage() {
           </div>
         </div>
 
-        {/* VN Gold prices */}
+        {/* VN Gold prices - clickable tabs */}
         <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border border-yellow-200 dark:border-yellow-800/30 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-400 uppercase tracking-wide">Giá Vàng VN · VND/lượng</p>
-            <p className="text-xs text-yellow-600 dark:text-yellow-500">Quy đổi công thức</p>
+            <div className="flex items-center bg-yellow-200/50 dark:bg-yellow-800/30 rounded-lg p-0.5">
+              <button
+                data-testid="btn-gold-type-sjc"
+                onClick={() => setGoldType("sjc")}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                  goldType === "sjc"
+                    ? "bg-amber-500 text-white shadow-sm"
+                    : "text-yellow-700 dark:text-yellow-400 hover:text-foreground"
+                )}
+              >
+                SJC
+              </button>
+              <button
+                data-testid="btn-gold-type-nhan"
+                onClick={() => setGoldType("nhan")}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                  goldType === "nhan"
+                    ? "bg-amber-500 text-white shadow-sm"
+                    : "text-yellow-700 dark:text-yellow-400 hover:text-foreground"
+                )}
+              >
+                Nhẫn 9999
+              </button>
+            </div>
           </div>
+
           {isLoading ? (
             <div className="space-y-3">
               <Skeleton className="h-10 w-48 bg-yellow-200/50" />
               <Skeleton className="h-8 w-40 bg-yellow-200/50" />
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-0.5">Vàng nhẫn 9999</p>
-                <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(giaNhan)}đ</p>
+          ) : goldType === "sjc" ? (
+            <div>
+              <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-0.5">Vàng miếng SJC (quy đổi + phụ trội)</p>
+              <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(giaSJC)}đ</p>
+              <div className="mt-2 flex items-center gap-4 text-xs text-yellow-700 dark:text-yellow-400">
+                <span>Quy đổi TG: {fmt(giaNhan)}đ</span>
+                <span className="text-amber-600 font-semibold">+{fmt(chenhLechSJC)}đ ({chenhLechPctSJC.toFixed(1)}% phụ trội)</span>
               </div>
-              <div className="border-t border-yellow-200/60 dark:border-yellow-700/30 pt-2">
-                <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-0.5">Vàng miếng SJC (ước tính)</p>
-                <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(giaSJC)}đ</p>
-                <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">
-                  Phụ trội: +{fmt(sjcPremiumPerLuong)}đ ({chenhLechPct.toFixed(1)}%)
-                </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-0.5">Vàng nhẫn 9999 (giá quy đổi thế giới)</p>
+              <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(giaNhan)}đ</p>
+              <div className="mt-2 flex items-center gap-4 text-xs text-yellow-700 dark:text-yellow-400">
+                <span>Thế giới: ${fmtUsd(usdOz)}/oz</span>
+                <span>Tỷ giá: {usdToVnd.toLocaleString("vi-VN")}</span>
               </div>
             </div>
           )}
+
+          <p className="text-xs text-muted-foreground mt-3 italic">
+            * Giá quy đổi lý thuyết từ giá TG. Nhấn SJC / Nhẫn để xem biểu đồ tương ứng.
+          </p>
         </div>
       </div>
+
       {/* Formula breakdown (collapsible) */}
       <div className="bg-card border border-card-border rounded-xl mb-6 overflow-hidden">
         <button
@@ -209,7 +253,7 @@ export default function GoldPage() {
               <span className="font-medium">{fmt(processingFeePerLuong)} đ/lượng</span>
               <span className="text-muted-foreground">Giá thế giới:</span>
               <span className="font-medium">${fmtUsd(usdOz)}/oz</span>
-              <span className="text-muted-foreground">Tỷ giá USD/VND:</span>
+              <span className="text-muted-foreground">Tỷ giá USD/VND (VCB):</span>
               <span className="font-medium">{usdToVnd.toLocaleString("vi-VN")}</span>
             </div>
             <div className="mt-3 bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
@@ -223,12 +267,13 @@ export default function GoldPage() {
           </div>
         )}
       </div>
-      {/* Chênh lệch SJC vs Thế giới */}
+
+      {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">Chênh lệch SJC/TG</p>
+          <p className="text-xs text-muted-foreground mb-1">Chênh lệch SJC/Nhẫn</p>
           <p className="text-base font-bold text-amber-600">+{fmt(sjcPremiumPerLuong)}đ</p>
-          <p className="text-xs text-muted-foreground">{chenhLechPct.toFixed(1)}% premium</p>
+          <p className="text-xs text-muted-foreground">{chenhLechPctSJC.toFixed(1)}% premium</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">XAU/USD</p>
@@ -236,9 +281,9 @@ export default function GoldPage() {
           <p className="text-xs text-muted-foreground">Troy ounce</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">USD/VND</p>
+          <p className="text-xs text-muted-foreground mb-1">USD/VND (VCB)</p>
           <p className="text-base font-bold">{usdToVnd.toLocaleString("vi-VN")}</p>
-          <p className="text-xs text-muted-foreground">Tỷ giá tham chiếu</p>
+          <p className="text-xs text-muted-foreground">Tỷ giá bán ra</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Thay đổi 24h</p>
@@ -248,35 +293,42 @@ export default function GoldPage() {
           <p className="text-xs text-muted-foreground">{gold?.change ? `${gold.change >= 0 ? "+" : ""}${fmt(gold.change)}đ` : ""}</p>
         </div>
       </div>
+
       {/* Chart + News */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <div className="bg-card border border-card-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Biểu đồ giá vàng (USD/Oz)</h3>
-              <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
-                {(["1", "7", "30"] as Period[]).map(p => (
-                  <button
-                    key={p}
-                    data-testid={`btn-gold-period-${p}`}
-                    onClick={() => setPeriod(p)}
-                    className={cn(
-                      "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                      period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold">
+                  Biểu đồ {goldType === "sjc" ? "Vàng miếng SJC" : "Vàng nhẫn 9999"} (VND/lượng)
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+                  {(["1", "7", "30"] as Period[]).map(p => (
+                    <button
+                      key={p}
+                      data-testid={`btn-gold-period-${p}`}
+                      onClick={() => setPeriod(p)}
+                      className={cn(
+                        "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                        period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <PriceChart
               type="gold"
-              symbol="XAU"
+              symbol={goldType === "sjc" ? "SJC_VND" : "NHAN_VND"}
               days={period === "1" ? 1 : period === "7" ? 7 : 30}
-              currentPrice={usdOz || undefined}
+              currentPrice={chartPrice || undefined}
               height={220}
-              color="#f59e0b"
+              color={goldType === "sjc" ? "#f59e0b" : "#f97316"}
             />
           </div>
         </div>
@@ -287,6 +339,7 @@ export default function GoldPage() {
           </div>
         </div>
       </div>
+
       {showSettings && (
         <SettingsPanel
           settings={settings}
