@@ -127,7 +127,6 @@ export default function GoldPage() {
           </Button>
         </div>
       </div>
-
       {/* World gold + VN prices */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         {/* World gold - USD */}
@@ -151,7 +150,7 @@ export default function GoldPage() {
               <p className="font-bold text-amber-800 dark:text-amber-200">{usdToVnd.toLocaleString("vi-VN")}</p>
             </div>
             <div>
-              <p className="text-amber-600 dark:text-amber-400">Per lượng (troy)</p>
+              <p className="text-amber-600 dark:text-amber-400">USD/Lượng</p>
               <p className="font-bold text-amber-800 dark:text-amber-200">${fmtUsd(usdOz * luongPerOz)}</p>
             </div>
           </div>
@@ -185,7 +184,6 @@ export default function GoldPage() {
           )}
         </div>
       </div>
-
       {/* Formula breakdown (collapsible) */}
       <div className="bg-card border border-card-border rounded-xl mb-6 overflow-hidden">
         <button
@@ -225,7 +223,6 @@ export default function GoldPage() {
           </div>
         )}
       </div>
-
       {/* Chênh lệch SJC vs Thế giới */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-3">
@@ -251,7 +248,6 @@ export default function GoldPage() {
           <p className="text-xs text-muted-foreground">{gold?.change ? `${gold.change >= 0 ? "+" : ""}${fmt(gold.change)}đ` : ""}</p>
         </div>
       </div>
-
       {/* Chart + News */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -291,7 +287,6 @@ export default function GoldPage() {
           </div>
         </div>
       </div>
-
       {showSettings && (
         <SettingsPanel
           settings={settings}
