@@ -1,0 +1,222 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Microsoft JhengHei",
+      "role": "body"
+    },
+    {
+      "family": "pplxSans",
+      "role": "unknown"
+    },
+    {
+      "family": "Segoe UI",
+      "role": "body"
+    },
+    {
+      "family": "Roboto",
+      "role": "body"
+    },
+    {
+      "family": "Helvetica Neue",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#1A73E8",
+    "accent": "#F3F0EC",
+    "background": "#FAF8F5",
+    "textPrimary": "#000000",
+    "link": "#8DBCC1"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Microsoft JhengHei",
+      "heading": "Microsoft JhengHei"
+    },
+    "fontStacks": {
+      "heading": [
+        "pplxSans",
+        "ui-sans-serif",
+        "system-ui",
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "Noto Sans",
+        "Hiragino Sans",
+        "Yu Gothic",
+        "Meiryo",
+        "PingFang SC",
+        "Microsoft YaHei",
+        "PingFang TC",
+        "Microsoft JhengHei",
+        "PingFang HK",
+        "PingFang MO",
+        "Apple SD Gothic Neo",
+        "Malgun Gothic",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Noto Color Emoji"
+      ],
+      "body": [
+        "pplxSans",
+        "ui-sans-serif",
+        "system-ui",
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "Noto Sans",
+        "Hiragino Sans",
+        "Yu Gothic",
+        "Meiryo",
+        "PingFang SC",
+        "Microsoft YaHei",
+        "PingFang TC",
+        "Microsoft JhengHei",
+        "PingFang HK",
+        "PingFang MO",
+        "Apple SD Gothic Neo",
+        "Malgun Gothic",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Noto Color Emoji"
+      ],
+      "paragraph": [
+        "pplxSans",
+        "ui-sans-serif",
+        "system-ui",
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "Noto Sans",
+        "Hiragino Sans",
+        "Yu Gothic",
+        "Meiryo",
+        "PingFang SC",
+        "Microsoft YaHei",
+        "PingFang TC",
+        "Microsoft JhengHei",
+        "PingFang HK",
+        "PingFang MO",
+        "Apple SD Gothic Neo",
+        "Malgun Gothic",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Noto Color Emoji"
+      ]
+    },
+    "fontSizes": {
+      "h1": "16px",
+      "h2": "14px",
+      "body": "16px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "8px"
+  },
+  "components": {
+    "input": {
+      "background": "#FDFBFA",
+      "textColor": "#27251E",
+      "borderColor": "#DCDAD7",
+      "borderRadius": "8px",
+      "borderRadiusCorners": {
+        "topLeft": "8px",
+        "topRight": "8px",
+        "bottomRight": "8px",
+        "bottomLeft": "8px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#F3F0EC",
+      "textColor": "#000000",
+      "borderRadius": "0px",
+      "borderRadiusCorners": {
+        "topLeft": "0px",
+        "topRight": "0px",
+        "bottomRight": "0px",
+        "bottomLeft": "0px"
+      },
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "#FAF8F5",
+      "textColor": "#27251E",
+      "borderColor": "#DCDAD7",
+      "borderRadius": "8px",
+      "borderRadiusCorners": {
+        "topLeft": "8px",
+        "topRight": "8px",
+        "bottomRight": "8px",
+        "bottomLeft": "8px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "https://www.perplexity.ai/favicon.svg",
+    "ogImage": "File saved at: attached_assets/ogImage.png",
+    "logoHref": "File saved at: attached_assets/logoHref.html"
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": 1,
+    "reasoning": "Selected #1 because it is visible, located in the header, and links to the homepage, aligning with the brand 'Perplexity AI'.",
+    "confidence": 0.85,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "New Thread",
+      "reasoning": "Button #0 ('New Thread') stands out with a unique background color (#F3F0EC) compared to the others, suggesting it is the primary CTA."
+    },
+    "secondary": {
+      "index": 4,
+      "text": "Share",
+      "reasoning": "Button #4 ('Share') has a different background color (#FAF8F5) from the primary button, making it suitable as a secondary CTA."
+    },
+    "confidence": 0.9
+  },
+  "personality": {
+    "tone": "modern",
+    "energy": "medium",
+    "targetAudience": "financial professionals and investors"
+  },
+  "designSystem": {
+    "framework": "tailwind",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.9,
+    "colors": 0.9,
+    "overall": 0.9
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 1,
+        "selectedLogoReasoning": "Selected #1 because it is visible, located in the header, and links to the homepage, aligning with the brand 'Perplexity AI'.",
+        "confidence": 0.85
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}
