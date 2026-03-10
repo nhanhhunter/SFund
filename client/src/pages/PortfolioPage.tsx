@@ -36,6 +36,18 @@ export default function PortfolioPage() {
   const { data: goldData } = useQuery<any>({ queryKey: ["/api/prices/gold"], refetchInterval: 60_000 });
   const { data: oilData } = useQuery<any>({ queryKey: ["/api/prices/oil"], refetchInterval: 60_000 });
 
+  // Get VN stock symbols in portfolio to fetch real-time prices
+  const stockSymbols = useMemo(() => {
+    return (portfolio || []).filter(i => i.type === "stock").map(i => i.symbol).join(",");
+  }, [portfolio]);
+
+  const { data: vnStockPrices } = useQuery<Record<string, any>>({
+    queryKey: ["/api/prices/vn-batch", stockSymbols],
+    queryFn: () => stockSymbols ? fetch(`/api/prices/vn-batch?symbols=${stockSymbols}`).then(r => r.json()) : Promise.resolve({}),
+    enabled: !!stockSymbols,
+    refetchInterval: 60_000,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/portfolio/${id}`);
@@ -48,22 +60,24 @@ export default function PortfolioPage() {
     onError: (err: any) => toast({ title: "Lỗi", description: err.message, variant: "destructive" }),
   });
 
-  function getCurrentPrice(item: PortfolioItem): number {
-    if (item.type === "crypto") {
-      const p = cryptoPrices?.[item.symbol];
-      return p?.usd || 0;
-    }
-    if (item.type === "gold") {
-      return goldData?.XAU?.priceVndLuong || item.avgBuyPrice;
-    }
-    if (item.type === "oil") {
-      const p = item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI;
-      return p?.price || item.avgBuyPrice;
-    }
-    return item.avgBuyPrice * (1 + (Math.random() - 0.48) * 0.05);
-  }
-
   const enriched = useMemo(() => {
+    function getCurrentPrice(item: PortfolioItem): number {
+      if (item.type === "crypto") {
+        const p = cryptoPrices?.[item.symbol];
+        return p?.usd || 0;
+      }
+      if (item.type === "gold") {
+        return goldData?.XAU?.priceVndLuong || item.avgBuyPrice;
+      }
+      if (item.type === "oil") {
+        const p = item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI;
+        return p?.price || item.avgBuyPrice;
+      }
+      if (item.type === "stock") {
+        return vnStockPrices?.[item.symbol]?.price || item.avgBuyPrice;
+      }
+      return item.avgBuyPrice;
+    }
     return (portfolio || []).map(item => {
       const currentPrice = getCurrentPrice(item);
       const costBasis = item.quantity * item.avgBuyPrice;
@@ -72,7 +86,7 @@ export default function PortfolioPage() {
       const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
       return { ...item, currentPrice, costBasis, currentValue, pnl, pnlPercent };
     });
-  }, [portfolio, cryptoPrices, goldData, oilData]);
+  }, [portfolio, cryptoPrices, goldData, oilData, vnStockPrices]);
 
   const totalValue = enriched.reduce((s, i) => s + i.currentValue, 0);
   const totalCost = enriched.reduce((s, i) => s + i.costBasis, 0);
@@ -111,9 +125,9 @@ export default function PortfolioPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-2">
           <p className="text-xs text-muted-foreground mb-1">Tổng giá trị danh mục</p>
-          <p className="text-2xl font-bold text-foreground">
-            {isLoading ? <Skeleton className="h-8 w-32 inline-block" /> : `~${formatCurrency(totalValue)}`}
-          </p>
+          <div className="text-2xl font-bold text-foreground">
+            {isLoading ? <Skeleton className="h-8 w-32" /> : `~${formatCurrency(totalValue)}`}
+          </div>
           <p className={cn("text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(totalPnl))}>
             {totalPnl >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
             {totalPnl >= 0 ? "+" : ""}{formatCurrency(Math.abs(totalPnl))} ({formatPercent(totalPnlPct)})

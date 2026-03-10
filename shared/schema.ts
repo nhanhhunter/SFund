@@ -75,6 +75,7 @@ export type WatchlistItem = z.infer<typeof watchlistItemSchema>;
 export type InsertWatchlistItem = z.infer<typeof insertWatchlistItemSchema>;
 
 export const VN_STOCK_LIST = [
+  // HOSE
   { symbol: "VNM", name: "Vinamilk", exchange: "HOSE" },
   { symbol: "VIC", name: "Vingroup", exchange: "HOSE" },
   { symbol: "VHM", name: "Vinhomes", exchange: "HOSE" },
@@ -85,7 +86,7 @@ export const VN_STOCK_LIST = [
   { symbol: "TCB", name: "Techcombank", exchange: "HOSE" },
   { symbol: "CTG", name: "VietinBank", exchange: "HOSE" },
   { symbol: "MBB", name: "MB Bank", exchange: "HOSE" },
-  { symbol: "FPT", name: "FPT Corp", exchange: "HOSE" },
+  { symbol: "FPT", name: "FPT Corporation", exchange: "HOSE" },
   { symbol: "VPB", name: "VPBank", exchange: "HOSE" },
   { symbol: "ACB", name: "Asia Commercial Bank", exchange: "HOSE" },
   { symbol: "STB", name: "Sacombank", exchange: "HOSE" },
@@ -94,7 +95,36 @@ export const VN_STOCK_LIST = [
   { symbol: "SAB", name: "Sabeco", exchange: "HOSE" },
   { symbol: "PLX", name: "Petrolimex", exchange: "HOSE" },
   { symbol: "HDB", name: "HDBank", exchange: "HOSE" },
-  { symbol: "SHB", name: "SHB Bank", exchange: "HOSE" },
+  { symbol: "VRE", name: "Vincom Retail", exchange: "HOSE" },
+  { symbol: "SSI", name: "SSI Securities", exchange: "HOSE" },
+  { symbol: "PDR", name: "Phat Dat Real Estate", exchange: "HOSE" },
+  { symbol: "REE", name: "REE Corporation", exchange: "HOSE" },
+  { symbol: "PNJ", name: "Phu Nhuan Jewelry", exchange: "HOSE" },
+  { symbol: "DXG", name: "Dat Xanh Group", exchange: "HOSE" },
+  { symbol: "VJC", name: "VietJet Air", exchange: "HOSE" },
+  { symbol: "HVN", name: "Vietnam Airlines", exchange: "HOSE" },
+  { symbol: "PAN", name: "Pan Group", exchange: "HOSE" },
+  { symbol: "AAA", name: "An Phat Bioplastics", exchange: "HOSE" },
+  // HNX
+  { symbol: "SHB", name: "Saigon-Hanoi Bank", exchange: "HNX" },
+  { symbol: "PVS", name: "PVS Technical Services", exchange: "HNX" },
+  { symbol: "NVB", name: "NCB Bank", exchange: "HNX" },
+  { symbol: "BVS", name: "Bao Viet Securities", exchange: "HNX" },
+  { symbol: "HUT", name: "Tasco Corporation", exchange: "HNX" },
+  { symbol: "PVI", name: "PVI Holdings", exchange: "HNX" },
+  { symbol: "CEO", name: "C.E.O Group", exchange: "HNX" },
+  { symbol: "VCS", name: "Vicostone", exchange: "HNX" },
+  { symbol: "IDC", name: "Idico Corporation", exchange: "HNX" },
+  { symbol: "HBC", name: "Hoa Binh Construction", exchange: "HNX" },
+  // UpCOM
+  { symbol: "BSR", name: "Binh Son Refining", exchange: "UpCOM" },
+  { symbol: "OIL", name: "PV Oil", exchange: "UpCOM" },
+  { symbol: "MCH", name: "Masan Consumer", exchange: "UpCOM" },
+  { symbol: "VEA", name: "Vietnam Engine & Agricultural Machinery", exchange: "UpCOM" },
+  { symbol: "QNS", name: "Quang Ngai Sugar", exchange: "UpCOM" },
+  { symbol: "VGT", name: "Vinatex", exchange: "UpCOM" },
+  { symbol: "ABI", name: "ABI Insurance", exchange: "UpCOM" },
+  { symbol: "VTP", name: "Viettel Post", exchange: "UpCOM" },
 ];
 
 export const CRYPTO_LIST = [

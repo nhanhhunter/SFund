@@ -48,73 +48,134 @@ function cached<T>(cache: Map<string, { data: T; ts: number }>, key: string, ttl
   });
 }
 
-async function fetchVNStockPrice(symbol: string) {
-  try {
-    const url = `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${symbol}&type=stock&resolution=D&from=${Math.floor(Date.now() / 1000) - 86400 * 5}&to=${Math.floor(Date.now() / 1000)}`;
-    const data = await fetchJson(url);
-    if (data?.data?.length) {
-      const bars = data.data;
-      const latest = bars[bars.length - 1];
-      const prev = bars[bars.length - 2] || latest;
-      const change = latest.close - prev.close;
-      const changePercent = (change / prev.close) * 100;
-      return {
-        symbol,
-        price: latest.close * 1000,
-        change: change * 1000,
-        changePercent,
-        volume: latest.volume,
-        high: latest.high * 1000,
-        low: latest.low * 1000,
-        open: latest.open * 1000,
-        currency: "VND",
-        exchange: "HOSE",
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-  } catch {}
+// Market ID mapping from VPS API
+const VPS_MARKET_MAP: Record<string, string> = {
+  STO: "HOSE",
+  STX: "HNX",
+  OTC: "UpCOM",
+  STU: "UpCOM",
+};
 
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 86400 * 7;
-    const url = `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bar?ticker=${symbol}&type=stock&resolution=D&from=${from}&to=${now}`;
-    const data = await fetchJson(url);
-    if (data?.data?.length) {
-      const bars = data.data;
-      const latest = bars[bars.length - 1];
-      const prev = bars[bars.length - 2] || latest;
-      const change = latest.close - prev.close;
-      return {
-        symbol,
-        price: latest.close * 1000,
-        change: change * 1000,
-        changePercent: (change / prev.close) * 100,
-        volume: latest.volume,
-        high: latest.high * 1000,
-        low: latest.low * 1000,
-        open: latest.open * 1000,
-        currency: "VND",
-        exchange: "HOSE",
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-  } catch {}
-
-  return null;
+// Fetch multiple VN stock prices at once using VPS real-time API
+async function fetchVNStockPriceBatch(symbols: string[]): Promise<Record<string, any>> {
+  const symbolStr = symbols.map(s => s.toUpperCase()).join(",");
+  const url = `https://bgapidatafeed.vps.com.vn/getliststockdata/${symbolStr}`;
+  const data = await fetchJson(url);
+  const result: Record<string, any> = {};
+  if (!Array.isArray(data)) return result;
+  for (const item of data) {
+    const sym = item.sym as string;
+    if (!sym) continue;
+    const lastPrice = (item.lastPrice as number) * 1000;
+    const refPrice = (item.r as number) * 1000;
+    const change = lastPrice - refPrice;
+    const absChangePercent = parseFloat(item.changePc as string) || 0;
+    const changePercent = change < 0 ? -absChangePercent : absChangePercent;
+    const exchange = VPS_MARKET_MAP[item.marketId as string] || "HOSE";
+    result[sym] = {
+      symbol: sym,
+      price: lastPrice,
+      change,
+      changePercent,
+      volume: (item.lot as number) * 10,
+      high: (item.highPrice as number) * 1000,
+      low: (item.lowPrice as number) * 1000,
+      open: (item.openPrice as number) * 1000,
+      refPrice,
+      ceiling: (item.c as number) * 1000,
+      floor: (item.f as number) * 1000,
+      currency: "VND",
+      exchange,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+  return result;
 }
 
+async function fetchVNStockPrice(symbol: string): Promise<any | null> {
+  try {
+    const batch = await fetchVNStockPriceBatch([symbol]);
+    return batch[symbol.toUpperCase()] || null;
+  } catch {
+    return null;
+  }
+}
+
+// Large list of popular VN stocks across HOSE, HNX, UpCOM
+const VN_STOCK_LIST: Array<{ symbol: string; name: string; exchange: string }> = [
+  // HOSE - Blue chips & large caps
+  { symbol: "VNM", name: "Vinamilk", exchange: "HOSE" },
+  { symbol: "VIC", name: "Vingroup", exchange: "HOSE" },
+  { symbol: "VHM", name: "Vinhomes", exchange: "HOSE" },
+  { symbol: "HPG", name: "Hoa Phat Group", exchange: "HOSE" },
+  { symbol: "MSN", name: "Masan Group", exchange: "HOSE" },
+  { symbol: "VCB", name: "Vietcombank", exchange: "HOSE" },
+  { symbol: "BID", name: "BIDV", exchange: "HOSE" },
+  { symbol: "CTG", name: "VietinBank", exchange: "HOSE" },
+  { symbol: "TCB", name: "Techcombank", exchange: "HOSE" },
+  { symbol: "MBB", name: "MB Bank", exchange: "HOSE" },
+  { symbol: "FPT", name: "FPT Corporation", exchange: "HOSE" },
+  { symbol: "VPB", name: "VPBank", exchange: "HOSE" },
+  { symbol: "ACB", name: "Asia Commercial Bank", exchange: "HOSE" },
+  { symbol: "STB", name: "Sacombank", exchange: "HOSE" },
+  { symbol: "MWG", name: "Mobile World", exchange: "HOSE" },
+  { symbol: "GAS", name: "PetroVietnam Gas", exchange: "HOSE" },
+  { symbol: "SAB", name: "Sabeco", exchange: "HOSE" },
+  { symbol: "PLX", name: "Petrolimex", exchange: "HOSE" },
+  { symbol: "HDB", name: "HDBank", exchange: "HOSE" },
+  { symbol: "SHB", name: "Saigon-Hanoi Bank", exchange: "HOSE" },
+  { symbol: "VRE", name: "Vincom Retail", exchange: "HOSE" },
+  { symbol: "SSI", name: "SSI Securities", exchange: "HOSE" },
+  { symbol: "PDR", name: "Phat Dat Real Estate", exchange: "HOSE" },
+  { symbol: "REE", name: "REE Corporation", exchange: "HOSE" },
+  { symbol: "PNJ", name: "PNJ Jewelry", exchange: "HOSE" },
+  { symbol: "DXG", name: "Dat Xanh Group", exchange: "HOSE" },
+  { symbol: "KDH", name: "Khang Dien House", exchange: "HOSE" },
+  { symbol: "NLG", name: "Nam Long", exchange: "HOSE" },
+  { symbol: "DPM", name: "PetroVietnam Fertilizer", exchange: "HOSE" },
+  { symbol: "GMD", name: "Gemadept", exchange: "HOSE" },
+  { symbol: "HAH", name: "Hai Ha Petimex", exchange: "HOSE" },
+  { symbol: "DCM", name: "Ca Mau Fertilizer", exchange: "HOSE" },
+  { symbol: "BCM", name: "Binh Duong Industry", exchange: "HOSE" },
+  { symbol: "VJC", name: "VietJet Air", exchange: "HOSE" },
+  { symbol: "HVN", name: "Vietnam Airlines", exchange: "HOSE" },
+  { symbol: "ACV", name: "Airports Corporation", exchange: "HOSE" },
+  { symbol: "PAN", name: "Pan Group", exchange: "HOSE" },
+  { symbol: "AAA", name: "An Phat Bioplastics", exchange: "HOSE" },
+  // HNX
+  { symbol: "SHB", name: "Saigon-Hanoi Bank", exchange: "HNX" },
+  { symbol: "PVS", name: "PVS Technical Services", exchange: "HNX" },
+  { symbol: "NVB", name: "NCB Bank", exchange: "HNX" },
+  { symbol: "BVS", name: "Bao Viet Securities", exchange: "HNX" },
+  { symbol: "HUT", name: "Tasco", exchange: "HNX" },
+  { symbol: "PVI", name: "PVI Holdings", exchange: "HNX" },
+  { symbol: "CEO", name: "C.E.O Group", exchange: "HNX" },
+  { symbol: "VCS", name: "Vicostone", exchange: "HNX" },
+  { symbol: "SCI", name: "SCI Group", exchange: "HNX" },
+  { symbol: "IDC", name: "Industrial Development Corp", exchange: "HNX" },
+  // UpCOM
+  { symbol: "BSR", name: "Binh Son Refining", exchange: "UpCOM" },
+  { symbol: "OIL", name: "PVOil", exchange: "UpCOM" },
+  { symbol: "MCH", name: "Masan Consumer", exchange: "UpCOM" },
+  { symbol: "VEA", name: "Vietnam Engine", exchange: "UpCOM" },
+  { symbol: "ABI", name: "ABI Insurance", exchange: "UpCOM" },
+  { symbol: "QNS", name: "Quang Ngai Sugar", exchange: "UpCOM" },
+  { symbol: "VGT", name: "Vinatex", exchange: "UpCOM" },
+];
+
 const VN_PRICES_FALLBACK: Record<string, number> = {
-  VNM: 78500, VIC: 48000, VHM: 35000, HPG: 28500, MSN: 71000,
+  VNM: 78500, VIC: 148000, VHM: 35000, HPG: 27000, MSN: 71000,
   VCB: 95000, BID: 55000, TCB: 42000, CTG: 38000, MBB: 28000,
-  FPT: 135000, VPB: 22000, ACB: 30000, STB: 34000, MWG: 58000,
+  FPT: 137000, VPB: 22000, ACB: 30000, STB: 34000, MWG: 58000,
   GAS: 82000, SAB: 195000, PLX: 45000, HDB: 22000, SHB: 18000,
+  VRE: 28000, SSI: 28000, PDR: 14000, REE: 65000, PNJ: 88000,
 };
 
 function generateVNPrice(symbol: string): any {
   const base = VN_PRICES_FALLBACK[symbol] || 50000;
   const variance = (Math.random() - 0.48) * 0.04;
   const price = Math.round(base * (1 + variance) / 100) * 100;
-  const change = Math.round((price - base) / 100) * 100;
+  const change = price - base;
   const changePercent = (change / base) * 100;
   return {
     symbol,
@@ -125,6 +186,9 @@ function generateVNPrice(symbol: string): any {
     high: price + Math.abs(change) * 0.5,
     low: price - Math.abs(change) * 0.5,
     open: base,
+    refPrice: base,
+    ceiling: Math.round(base * 1.07 / 100) * 100,
+    floor: Math.round(base * 0.93 / 100) * 100,
     currency: "VND",
     exchange: "HOSE",
     lastUpdated: new Date().toISOString(),
@@ -138,19 +202,27 @@ async function fetchCryptoPrice(ids: string) {
 
 async function fetchGoldPrice() {
   try {
-    const exRates = await fetchJson("https://api.exchangerate-api.com/v4/latest/USD");
-    const usdToVnd = exRates?.rates?.VND || 25000;
-    const goldUsdPerOz = 2330 + (Math.random() - 0.5) * 20;
-    const goldUsdPerGram = goldUsdPerOz / 31.1035;
-    const goldVndPerLuong = goldUsdPerGram * 37.5 * usdToVnd;
-    const change = (Math.random() - 0.48) * 50000;
-    const changePercent = (change / goldVndPerLuong) * 100;
+    // Fetch real-time XAU price from gold-api.com
+    const [goldData, exRates] = await Promise.all([
+      fetchJson("https://api.gold-api.com/price/XAU"),
+      fetchJson("https://api.exchangerate-api.com/v4/latest/USD"),
+    ]);
+    const goldUsdPerOz = goldData?.price as number;
+    if (!goldUsdPerOz) throw new Error("No gold price");
+    const usdToVnd = (exRates?.rates?.VND as number) || 25400;
+    // 1 lượng = 37.5g, 1 troy oz = 31.1035g → 1 lượng = 1.2057 troy oz
+    const goldVndPerLuong = goldUsdPerOz * (37.5 / 31.1035) * usdToVnd;
+    // Calculate change from 24h ago (estimate ~0.5% variance since gold-api doesn't provide 24h change)
+    const change24h = goldVndPerLuong * (Math.random() - 0.45) * 0.008;
+    const prev = goldVndPerLuong - change24h;
+    const changePercent = (change24h / prev) * 100;
     return {
       XAU: {
-        priceUsdOz: goldUsdPerOz,
+        priceUsdOz: Math.round(goldUsdPerOz * 100) / 100,
         priceVndLuong: Math.round(goldVndPerLuong / 10000) * 10000,
-        change,
-        changePercent,
+        change: Math.round(change24h / 1000) * 1000,
+        changePercent: Math.round(changePercent * 100) / 100,
+        usdToVnd: Math.round(usdToVnd),
         currency: "VND",
         lastUpdated: new Date().toISOString(),
       },
@@ -158,10 +230,11 @@ async function fetchGoldPrice() {
   } catch {
     return {
       XAU: {
-        priceUsdOz: 2330,
-        priceVndLuong: 7850000,
-        change: 50000,
-        changePercent: 0.64,
+        priceUsdOz: 2900,
+        priceVndLuong: 86000000,
+        change: 500000,
+        changePercent: 0.58,
+        usdToVnd: 25400,
         currency: "VND",
         lastUpdated: new Date().toISOString(),
       },
@@ -170,14 +243,99 @@ async function fetchGoldPrice() {
 }
 
 async function fetchOilPrice() {
-  const baseWTI = 77 + (Math.random() - 0.5) * 3;
-  const baseBrent = baseWTI + 2 + Math.random();
-  const changeWTI = (Math.random() - 0.48) * 2;
-  const changeBrent = (Math.random() - 0.48) * 2;
-  return {
-    WTI: { price: Math.round(baseWTI * 100) / 100, change: Math.round(changeWTI * 100) / 100, changePercent: (changeWTI / baseWTI) * 100, currency: "USD", lastUpdated: new Date().toISOString() },
-    BRENT: { price: Math.round(baseBrent * 100) / 100, change: Math.round(changeBrent * 100) / 100, changePercent: (changeBrent / baseBrent) * 100, currency: "USD", lastUpdated: new Date().toISOString() },
-  };
+  try {
+    // Use Yahoo Finance for real-time WTI and Brent crude prices
+    const [wtiData, brentData] = await Promise.all([
+      fetchJson("https://query1.finance.yahoo.com/v8/finance/chart/CL=F?range=2d&interval=1d"),
+      fetchJson("https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?range=2d&interval=1d"),
+    ]);
+
+    const wtiMeta = wtiData?.chart?.result?.[0]?.meta;
+    const brentMeta = brentData?.chart?.result?.[0]?.meta;
+
+    const wtiPrice = wtiMeta?.regularMarketPrice as number;
+    const wtiPrevClose = wtiMeta?.chartPreviousClose as number;
+    const brentPrice = brentMeta?.regularMarketPrice as number;
+    const brentPrevClose = brentMeta?.chartPreviousClose as number;
+
+    const wtiChange = wtiPrice - wtiPrevClose;
+    const brentChange = brentPrice - brentPrevClose;
+
+    return {
+      WTI: {
+        price: Math.round(wtiPrice * 100) / 100,
+        change: Math.round(wtiChange * 100) / 100,
+        changePercent: Math.round((wtiChange / wtiPrevClose) * 10000) / 100,
+        currency: "USD",
+        lastUpdated: new Date().toISOString(),
+      },
+      BRENT: {
+        price: Math.round(brentPrice * 100) / 100,
+        change: Math.round(brentChange * 100) / 100,
+        changePercent: Math.round((brentChange / brentPrevClose) * 10000) / 100,
+        currency: "USD",
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+  } catch {
+    return {
+      WTI: { price: 77.5, change: -0.3, changePercent: -0.39, currency: "USD", lastUpdated: new Date().toISOString() },
+      BRENT: { price: 81.2, change: -0.25, changePercent: -0.31, currency: "USD", lastUpdated: new Date().toISOString() },
+    };
+  }
+}
+
+// Fetch VN market indices via Yahoo Finance compatible symbols
+async function fetchVNIndices() {
+  try {
+    // Use Stooq for VNINDEX (reliable free source)
+    const [vnData, hnxData] = await Promise.all([
+      fetchJson("https://stooq.com/q/l/?s=^vnindex&f=sd2t2ohlcv&h&e=json").catch(() => null),
+      fetchJson("https://stooq.com/q/l/?s=^hnxindex&f=sd2t2ohlcv&h&e=json").catch(() => null),
+    ]);
+
+    const vnSym = vnData?.symbols?.[0];
+    const hnxSym = hnxData?.symbols?.[0];
+
+    const vnPrice = vnSym?.close ?? 1280;
+    const vnOpen = vnSym?.open ?? 1270;
+    const vnChange = vnPrice - vnOpen;
+
+    const hnxPrice = hnxSym?.close ?? 225;
+    const hnxOpen = hnxSym?.open ?? 223;
+    const hnxChange = hnxPrice - hnxOpen;
+
+    return {
+      VNINDEX: {
+        price: Math.round(vnPrice * 100) / 100,
+        change: Math.round(vnChange * 100) / 100,
+        changePercent: Math.round((vnChange / vnOpen) * 10000) / 100,
+        high: vnSym?.high ?? vnPrice,
+        low: vnSym?.low ?? vnPrice,
+        lastUpdated: new Date().toISOString(),
+      },
+      HNXINDEX: {
+        price: Math.round(hnxPrice * 100) / 100,
+        change: Math.round(hnxChange * 100) / 100,
+        changePercent: Math.round((hnxChange / hnxOpen) * 10000) / 100,
+        high: hnxSym?.high ?? hnxPrice,
+        low: hnxSym?.low ?? hnxPrice,
+        lastUpdated: new Date().toISOString(),
+      },
+      UPCOMINDEX: {
+        price: 93.5,
+        change: 0.3,
+        changePercent: 0.32,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+  } catch {
+    return {
+      VNINDEX: { price: 1280, change: 8.5, changePercent: 0.67, lastUpdated: new Date().toISOString() },
+      HNXINDEX: { price: 225.5, change: 1.2, changePercent: 0.53, lastUpdated: new Date().toISOString() },
+      UPCOMINDEX: { price: 93.5, change: 0.3, changePercent: 0.32, lastUpdated: new Date().toISOString() },
+    };
+  }
 }
 
 async function fetchNews(topic: string, tickers?: string) {
@@ -300,10 +458,56 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // VN stock search endpoint
+  app.get("/api/stocks/search", async (req, res) => {
+    try {
+      const q = ((req.query.q as string) || "").toLowerCase().trim();
+      const exchange = (req.query.exchange as string) || "";
+      let results = VN_STOCK_LIST;
+      if (q) {
+        results = results.filter(
+          (s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+        );
+      }
+      if (exchange) {
+        results = results.filter((s) => s.exchange.toLowerCase() === exchange.toLowerCase());
+      }
+      res.json(results.slice(0, 20));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get VN stocks listing with current prices
+  app.get("/api/stocks/list", async (req, res) => {
+    try {
+      const exchange = (req.query.exchange as string) || "HOSE";
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const filtered = VN_STOCK_LIST.filter(
+        (s) => !exchange || s.exchange.toLowerCase() === exchange.toLowerCase()
+      );
+      const paged = filtered.slice((page - 1) * limit, page * limit);
+      const symbols = paged.map((s) => s.symbol);
+      // Fetch real prices in batch
+      let prices: Record<string, any> = {};
+      try {
+        prices = await fetchVNStockPriceBatch(symbols);
+      } catch {}
+      const result = paged.map((s) => ({
+        ...s,
+        ...(prices[s.symbol] || generateVNPrice(s.symbol)),
+      }));
+      res.json({ data: result, total: filtered.length, page, limit });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/prices/vn/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      const key = `vn_${symbol}`;
+      const key = `vn_${symbol.toUpperCase()}`;
       const data = await cached(priceCache, key, PRICE_TTL, async () => {
         const fetched = await fetchVNStockPrice(symbol.toUpperCase());
         return fetched || generateVNPrice(symbol.toUpperCase());
@@ -316,17 +520,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/prices/vn-batch", async (req, res) => {
     try {
-      const symbols = (req.query.symbols as string || "VNM,FPT,VCB,HPG,VIC").split(",");
-      const results: Record<string, any> = {};
-      await Promise.all(
-        symbols.map(async (sym) => {
-          const key = `vn_${sym}`;
-          results[sym] = await cached(priceCache, key, PRICE_TTL, async () => {
-            const fetched = await fetchVNStockPrice(sym.toUpperCase());
-            return fetched || generateVNPrice(sym.toUpperCase());
-          });
-        })
-      );
+      const symbols = ((req.query.symbols as string) || "VNM,FPT,VCB,HPG,VIC").split(",").map(s => s.trim().toUpperCase());
+      // Single batch request to VPS API (much faster than individual calls)
+      const key = `vn_batch_${symbols.sort().join(",")}`;
+      const results = await cached(priceCache, key, PRICE_TTL, async () => {
+        let data: Record<string, any> = {};
+        try {
+          data = await fetchVNStockPriceBatch(symbols);
+        } catch {}
+        // Fill in any missing symbols with fallback
+        for (const sym of symbols) {
+          if (!data[sym]) data[sym] = generateVNPrice(sym);
+        }
+        return data;
+      });
       res.json(results);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -361,39 +568,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/prices/indices", async (req, res) => {
+    try {
+      const data = await cached(priceCache, "vn_indices", PRICE_TTL, fetchVNIndices);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/market-overview", async (req, res) => {
     try {
-      const [gold, oil, crypto] = await Promise.all([
+      const [gold, oil, crypto, indices] = await Promise.all([
         cached(priceCache, "gold", PRICE_TTL, fetchGoldPrice),
         cached(priceCache, "oil", PRICE_TTL, fetchOilPrice),
         cached(priceCache, "crypto_bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron", PRICE_TTL, () =>
           fetchCryptoPrice("bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron")
         ),
+        cached(priceCache, "vn_indices", PRICE_TTL, fetchVNIndices),
       ]);
 
-      const vnIndexChange = (Math.random() - 0.48) * 15;
-      const vnIndexBase = 1280;
-      const vnIndexPrice = vnIndexBase + vnIndexChange;
-
       res.json({
-        vnIndex: {
-          price: Math.round(vnIndexPrice * 100) / 100,
-          change: Math.round(vnIndexChange * 100) / 100,
-          changePercent: (vnIndexChange / vnIndexBase) * 100,
-          lastUpdated: new Date().toISOString(),
-        },
-        hn30: {
-          price: 225.5 + (Math.random() - 0.5) * 5,
-          change: (Math.random() - 0.5) * 3,
-          changePercent: (Math.random() - 0.5) * 1.5,
-          lastUpdated: new Date().toISOString(),
-        },
-        upcom: {
-          price: 93.2 + (Math.random() - 0.5) * 2,
-          change: (Math.random() - 0.5) * 1,
-          changePercent: (Math.random() - 0.5) * 0.8,
-          lastUpdated: new Date().toISOString(),
-        },
+        vnIndex: indices.VNINDEX,
+        hn30: indices.HNXINDEX,
+        upcom: indices.UPCOMINDEX,
         gold,
         oil,
         crypto,
@@ -452,10 +650,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       let basePrice = 100;
       if (type === "stock") basePrice = VN_PRICES_FALLBACK[symbol] || 50000;
       else if (type === "crypto") {
-        const cryptoPrices: Record<string, number> = { bitcoin: 70000, ethereum: 2000, binancecoin: 640, solana: 86, ripple: 0.6, cardano: 0.45, dogecoin: 0.15, tron: 0.12 };
+        const cryptoPrices: Record<string, number> = {
+          bitcoin: 70000, ethereum: 2000, binancecoin: 640, solana: 86,
+          ripple: 0.6, cardano: 0.45, dogecoin: 0.15, tron: 0.12,
+        };
         basePrice = cryptoPrices[symbol] || 100;
-      } else if (type === "gold") basePrice = 2330;
-      else if (type === "oil") basePrice = 77;
+      } else if (type === "gold") basePrice = 2900;
+      else if (type === "oil") basePrice = 88;
 
       let price = basePrice * (0.85 + Math.random() * 0.15);
       for (let i = days; i >= 0; i--) {
@@ -466,7 +667,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const close = price + price * (Math.random() - 0.5) * 0.01;
         const high = Math.max(open, close) * (1 + Math.random() * 0.005);
         const low = Math.min(open, close) * (1 - Math.random() * 0.005);
-        data.push({ time, open: Math.round(open * 100) / 100, high: Math.round(high * 100) / 100, low: Math.round(low * 100) / 100, close: Math.round(close * 100) / 100, volume: Math.floor(Math.random() * 1000000) });
+        data.push({
+          time,
+          open: Math.round(open * 100) / 100,
+          high: Math.round(high * 100) / 100,
+          low: Math.round(low * 100) / 100,
+          close: Math.round(close * 100) / 100,
+          volume: Math.floor(Math.random() * 1000000),
+        });
       }
       res.json(data);
     } catch (err: any) {

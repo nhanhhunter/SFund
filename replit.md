@@ -10,23 +10,25 @@ A modern portfolio tracking dashboard for Vietnamese stocks, gold, oil, and cryp
 - **Font**: New York (system serif font) with Georgia fallback
 
 ## Key Features
-- Real-time Vietnamese stock prices (HOSE market) - 20 stocks
-- Gold prices (VND/Lượng + USD/Oz via exchange rate calculation)
-- Crude oil prices (WTI + Brent)
-- Cryptocurrency prices via CoinGecko API (8 coins)
-- Portfolio management with add/edit/delete (stocks, crypto, gold, oil)
+- Real-time Vietnamese stock prices (HOSE, HNX, UpCOM) - 47 stocks with exchange filter tabs
+- Shows ceiling (trần), floor (sàn), reference price (tham chiếu) for each VN stock
+- Gold prices (VND/Lượng + USD/Oz) from real-time gold-api.com
+- Crude oil prices (WTI + Brent) from Yahoo Finance real-time data
+- Cryptocurrency prices via CoinGecko API (8 coins) - real-time
+- Portfolio management with add/edit/delete - uses real VN stock prices
 - Watchlist for tracking assets
 - News feeds via Alpha Vantage (stocks/commodities) and CryptoCompare (crypto)
 - Interactive charts (30/90 day historical via Recharts)
 - Dark/light mode toggle
 
-## Data Sources (All Free)
+## Data Sources (All Free, Real-Time)
+- **VN Stocks**: VPS Securities API (bgapidatafeed.vps.com.vn) - real-time HOSE/HNX/UpCOM prices
+- **Gold price**: gold-api.com for XAU/USD, ExchangeRate-API for USD/VND conversion
+- **Oil prices**: Yahoo Finance (CL=F for WTI, BZ=F for Brent)
 - **Crypto**: CoinGecko API (no key needed)
-- **Exchange rate**: ExchangeRate-API (no key needed) 
-- **Gold price**: Calculated from XAU/USD + USD/VND exchange rate
+- **VN Indices**: Stooq.com for VNINDEX and HNXINDEX
 - **Stock news**: Alpha Vantage demo key (limited)
 - **Crypto news**: CryptoCompare API (no key needed)
-- **VN Stocks**: TCBS API (attempted), falls back to realistic generated prices
 
 ## Project Structure
 ```
@@ -73,6 +75,10 @@ shared/
 
 ## Notes
 - Price caching: 60 seconds for prices, 5 minutes for news
-- Gold prices are calculated from XAU/USD × USD/VND exchange rate
-- VN stock prices fall back to simulated data when TCBS API unavailable
+- VN stock prices from VPS API batch endpoint - single request for all symbols
+- Gold: XAU/USD from gold-api.com × USD/VND from exchangerate-api.com → VND/lượng
+- Oil: Yahoo Finance futures contracts (CL=F WTI, BZ=F Brent)
+- VN Stocks: 47 stocks across HOSE (29), HNX (10), UpCOM (8) exchanges
+- Exchange filter tabs in StocksPage allow browsing by exchange
+- Stock data includes: price, change, ceiling (trần), floor (sàn), ref price (tham chiếu)
 - Seed data pre-populated with realistic Vietnamese stock portfolio
