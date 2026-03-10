@@ -101,66 +101,137 @@ async function fetchVNStockPrice(symbol: string): Promise<any | null> {
   }
 }
 
-// Large list of popular VN stocks across HOSE, HNX, UpCOM
+// Comprehensive list of VN stocks across HOSE, HNX, UpCOM
 const VN_STOCK_LIST: Array<{ symbol: string; name: string; exchange: string }> = [
   // HOSE - Blue chips & large caps
-  { symbol: "VNM", name: "Vinamilk", exchange: "HOSE" },
-  { symbol: "VIC", name: "Vingroup", exchange: "HOSE" },
-  { symbol: "VHM", name: "Vinhomes", exchange: "HOSE" },
-  { symbol: "HPG", name: "Hoa Phat Group", exchange: "HOSE" },
-  { symbol: "MSN", name: "Masan Group", exchange: "HOSE" },
-  { symbol: "VCB", name: "Vietcombank", exchange: "HOSE" },
-  { symbol: "BID", name: "BIDV", exchange: "HOSE" },
-  { symbol: "CTG", name: "VietinBank", exchange: "HOSE" },
-  { symbol: "TCB", name: "Techcombank", exchange: "HOSE" },
-  { symbol: "MBB", name: "MB Bank", exchange: "HOSE" },
-  { symbol: "FPT", name: "FPT Corporation", exchange: "HOSE" },
-  { symbol: "VPB", name: "VPBank", exchange: "HOSE" },
-  { symbol: "ACB", name: "Asia Commercial Bank", exchange: "HOSE" },
-  { symbol: "STB", name: "Sacombank", exchange: "HOSE" },
-  { symbol: "MWG", name: "Mobile World", exchange: "HOSE" },
-  { symbol: "GAS", name: "PetroVietnam Gas", exchange: "HOSE" },
-  { symbol: "SAB", name: "Sabeco", exchange: "HOSE" },
-  { symbol: "PLX", name: "Petrolimex", exchange: "HOSE" },
-  { symbol: "HDB", name: "HDBank", exchange: "HOSE" },
-  { symbol: "SHB", name: "Saigon-Hanoi Bank", exchange: "HOSE" },
-  { symbol: "VRE", name: "Vincom Retail", exchange: "HOSE" },
-  { symbol: "SSI", name: "SSI Securities", exchange: "HOSE" },
-  { symbol: "PDR", name: "Phat Dat Real Estate", exchange: "HOSE" },
-  { symbol: "REE", name: "REE Corporation", exchange: "HOSE" },
-  { symbol: "PNJ", name: "PNJ Jewelry", exchange: "HOSE" },
-  { symbol: "DXG", name: "Dat Xanh Group", exchange: "HOSE" },
-  { symbol: "KDH", name: "Khang Dien House", exchange: "HOSE" },
-  { symbol: "NLG", name: "Nam Long", exchange: "HOSE" },
-  { symbol: "DPM", name: "PetroVietnam Fertilizer", exchange: "HOSE" },
-  { symbol: "GMD", name: "Gemadept", exchange: "HOSE" },
-  { symbol: "HAH", name: "Hai Ha Petimex", exchange: "HOSE" },
-  { symbol: "DCM", name: "Ca Mau Fertilizer", exchange: "HOSE" },
-  { symbol: "BCM", name: "Binh Duong Industry", exchange: "HOSE" },
-  { symbol: "VJC", name: "VietJet Air", exchange: "HOSE" },
-  { symbol: "HVN", name: "Vietnam Airlines", exchange: "HOSE" },
-  { symbol: "ACV", name: "Airports Corporation", exchange: "HOSE" },
-  { symbol: "PAN", name: "Pan Group", exchange: "HOSE" },
-  { symbol: "AAA", name: "An Phat Bioplastics", exchange: "HOSE" },
-  // HNX
-  { symbol: "SHB", name: "Saigon-Hanoi Bank", exchange: "HNX" },
-  { symbol: "PVS", name: "PVS Technical Services", exchange: "HNX" },
-  { symbol: "NVB", name: "NCB Bank", exchange: "HNX" },
-  { symbol: "BVS", name: "Bao Viet Securities", exchange: "HNX" },
-  { symbol: "HUT", name: "Tasco", exchange: "HNX" },
-  { symbol: "PVI", name: "PVI Holdings", exchange: "HNX" },
-  { symbol: "CEO", name: "C.E.O Group", exchange: "HNX" },
-  { symbol: "VCS", name: "Vicostone", exchange: "HNX" },
-  { symbol: "SCI", name: "SCI Group", exchange: "HNX" },
-  { symbol: "IDC", name: "Industrial Development Corp", exchange: "HNX" },
-  // UpCOM
-  { symbol: "BSR", name: "Binh Son Refining", exchange: "UpCOM" },
-  { symbol: "OIL", name: "PVOil", exchange: "UpCOM" },
-  { symbol: "MCH", name: "Masan Consumer", exchange: "UpCOM" },
-  { symbol: "VEA", name: "Vietnam Engine", exchange: "UpCOM" },
-  { symbol: "ABI", name: "ABI Insurance", exchange: "UpCOM" },
-  { symbol: "QNS", name: "Quang Ngai Sugar", exchange: "UpCOM" },
-  { symbol: "VGT", name: "Vinatex", exchange: "UpCOM" },
+  { symbol: "VNM", name: "Vinamilk - CTCP Sữa Việt Nam", exchange: "HOSE" },
+  { symbol: "VIC", name: "Vingroup - Tập đoàn Vingroup", exchange: "HOSE" },
+  { symbol: "VHM", name: "Vinhomes - CTCP Vinhomes", exchange: "HOSE" },
+  { symbol: "HPG", name: "Hòa Phát - Tập đoàn Hòa Phát", exchange: "HOSE" },
+  { symbol: "MSN", name: "Masan Group - Tập đoàn Masan", exchange: "HOSE" },
+  { symbol: "VCB", name: "Vietcombank - NH TMCP Ngoại Thương VN", exchange: "HOSE" },
+  { symbol: "BID", name: "BIDV - NH Đầu tư và Phát triển VN", exchange: "HOSE" },
+  { symbol: "CTG", name: "VietinBank - NH TMCP Công Thương VN", exchange: "HOSE" },
+  { symbol: "TCB", name: "Techcombank - NH TMCP Kỹ Thương VN", exchange: "HOSE" },
+  { symbol: "MBB", name: "MBBank - NH TMCP Quân Đội", exchange: "HOSE" },
+  { symbol: "FPT", name: "FPT - Tập đoàn FPT", exchange: "HOSE" },
+  { symbol: "VPB", name: "VPBank - NH TMCP Việt Nam Thịnh Vượng", exchange: "HOSE" },
+  { symbol: "ACB", name: "ACB - NH TMCP Á Châu", exchange: "HOSE" },
+  { symbol: "STB", name: "Sacombank - NH TMCP Sài Gòn Thương Tín", exchange: "HOSE" },
+  { symbol: "MWG", name: "Thế Giới Di Động - CTCP Đầu Tư TGDĐ", exchange: "HOSE" },
+  { symbol: "GAS", name: "PV Gas - Tổng Công ty Khí Việt Nam", exchange: "HOSE" },
+  { symbol: "SAB", name: "Sabeco - Tổng Công ty CP Bia Rượu NGK Sài Gòn", exchange: "HOSE" },
+  { symbol: "PLX", name: "Petrolimex - Tập đoàn Xăng Dầu VN", exchange: "HOSE" },
+  { symbol: "HDB", name: "HDBank - NH TMCP Phát triển TP.HCM", exchange: "HOSE" },
+  { symbol: "VRE", name: "Vincom Retail - CTCP Vincom Retail", exchange: "HOSE" },
+  { symbol: "SSI", name: "SSI - CTCP Chứng Khoán SSI", exchange: "HOSE" },
+  { symbol: "PDR", name: "Phát Đạt - CTCP Phát triển BĐS Phát Đạt", exchange: "HOSE" },
+  { symbol: "REE", name: "REE - CTCP Cơ Điện Lạnh", exchange: "HOSE" },
+  { symbol: "PNJ", name: "PNJ - CTCP Vàng Bạc Đá Quý Phú Nhuận", exchange: "HOSE" },
+  { symbol: "DXG", name: "Đất Xanh Group - CTCP Tập đoàn Đất Xanh", exchange: "HOSE" },
+  { symbol: "KDH", name: "Khang Điền - CTCP Đầu tư và Kinh doanh Nhà Khang Điền", exchange: "HOSE" },
+  { symbol: "NLG", name: "Nam Long - CTCP Đầu tư Nam Long", exchange: "HOSE" },
+  { symbol: "DPM", name: "Đạm Phú Mỹ - Tổng Công ty Phân bón và HC Dầu khí", exchange: "HOSE" },
+  { symbol: "GMD", name: "Gemadept - CTCP Gemadept", exchange: "HOSE" },
+  { symbol: "DCM", name: "Đạm Cà Mau - CTCP Phân bón Dầu khí Cà Mau", exchange: "HOSE" },
+  { symbol: "BCM", name: "Becamex - Tổng Công ty Đầu tư và Phát triển CN Bình Dương", exchange: "HOSE" },
+  { symbol: "VJC", name: "Vietjet Air - CTCP Hàng không VietJet", exchange: "HOSE" },
+  { symbol: "HVN", name: "Vietnam Airlines - Tổng Công ty Hàng không VN", exchange: "HOSE" },
+  { symbol: "ACV", name: "Cảng Hàng không - Tổng Công ty Cảng Hàng không VN", exchange: "HOSE" },
+  { symbol: "PAN", name: "Pan Group - CTCP Tập đoàn Pan", exchange: "HOSE" },
+  { symbol: "HAG", name: "HAGL - CTCP Hoàng Anh Gia Lai", exchange: "HOSE" },
+  { symbol: "DIG", name: "DIC Corp - Tổng Công ty CP Đầu tư Phát triển XD", exchange: "HOSE" },
+  { symbol: "CII", name: "CII - CTCP Đầu tư Hạ tầng Kỹ thuật TP.HCM", exchange: "HOSE" },
+  { symbol: "EVF", name: "EVNFinance - CTCP Tài chính Điện lực", exchange: "HOSE" },
+  { symbol: "VCI", name: "Vietcap - CTCP Chứng khoán Bản Việt", exchange: "HOSE" },
+  { symbol: "HCM", name: "HCMS - CTCP Chứng khoán TP.HCM", exchange: "HOSE" },
+  { symbol: "VND", name: "VNDirect - CTCP Chứng khoán VNDirect", exchange: "HOSE" },
+  { symbol: "LPB", name: "LienVietPostBank - NH TMCP Bưu điện Liên Việt", exchange: "HOSE" },
+  { symbol: "EIB", name: "Eximbank - NH TMCP Xuất Nhập Khẩu VN", exchange: "HOSE" },
+  { symbol: "TPB", name: "TPBank - NH TMCP Tiên Phong", exchange: "HOSE" },
+  { symbol: "OCB", name: "OCB - NH TMCP Phương Đông", exchange: "HOSE" },
+  { symbol: "MSB", name: "MSB - NH TMCP Hàng Hải VN", exchange: "HOSE" },
+  { symbol: "VIB", name: "VIB - NH TMCP Quốc Tế VN", exchange: "HOSE" },
+  { symbol: "TCH", name: "Tiến Chất - CTCP Đầu tư Kinh doanh Nhà Tiến Chất", exchange: "HOSE" },
+  { symbol: "NAB", name: "NamABank - NH TMCP Nam Á", exchange: "HOSE" },
+  { symbol: "BVH", name: "Bảo Việt - Tập đoàn Bảo Việt", exchange: "HOSE" },
+  { symbol: "VGC", name: "Viglacera - Tổng Công ty Viglacera", exchange: "HOSE" },
+  { symbol: "GVR", name: "Cao su VN - Tập đoàn Công nghiệp Cao su VN", exchange: "HOSE" },
+  { symbol: "PC1", name: "PC1 - CTCP Xây lắp Điện 1", exchange: "HOSE" },
+  { symbol: "POW", name: "PV Power - Tổng Công ty Điện lực Dầu khí VN", exchange: "HOSE" },
+  { symbol: "NT2", name: "Điện Nhơn Trạch 2 - CTCP Điện lực Dầu khí Nhơn Trạch 2", exchange: "HOSE" },
+  { symbol: "CNG", name: "CNG Việt Nam - CTCP CNG Việt Nam", exchange: "HOSE" },
+  { symbol: "PVD", name: "PVDrilling - CTCP Khoan và Dịch vụ Khoan DK", exchange: "HOSE" },
+  { symbol: "GEX", name: "Gelex Group - CTCP Tập đoàn Gelex", exchange: "HOSE" },
+  { symbol: "BWE", name: "BWE - CTCP Cấp Thoát nước Bình Dương", exchange: "HOSE" },
+  { symbol: "HSG", name: "Hoa Sen - CTCP Tập đoàn Hoa Sen", exchange: "HOSE" },
+  { symbol: "NKG", name: "Nam Kim - CTCP Thép Nam Kim", exchange: "HOSE" },
+  { symbol: "TLH", name: "Thép Tiến Lên - CTCP Tập đoàn Thép Tiến Lên", exchange: "HOSE" },
+  { symbol: "VHG", name: "VHG - CTCP Đầu tư Cao su Quảng Nam", exchange: "HOSE" },
+  { symbol: "ASM", name: "Sao Mai Group - CTCP Tập đoàn Sao Mai", exchange: "HOSE" },
+  { symbol: "IMP", name: "IMEXPHARM - CTCP Dược phẩm Imexpharm", exchange: "HOSE" },
+  { symbol: "DHC", name: "Đông Hải Bến Tre - CTCP Đông Hải Bến Tre", exchange: "HOSE" },
+  { symbol: "HDG", name: "Hà Đô Group - CTCP Tập đoàn Hà Đô", exchange: "HOSE" },
+  { symbol: "IJC", name: "IJC - CTCP Phát triển Hạ tầng KT Khu CN Tỉnh BĐ", exchange: "HOSE" },
+  { symbol: "SJS", name: "Sudico - CTCP Đầu tư Phát triển ĐT SJC", exchange: "HOSE" },
+  { symbol: "AGR", name: "Agribank Chứng khoán - CTCP Chứng khoán Agribank", exchange: "HOSE" },
+  { symbol: "CRE", name: "CRE - CTCP BĐS Thế kỷ", exchange: "HOSE" },
+  { symbol: "BSI", name: "BSI - CTCP Chứng khoán BIDV", exchange: "HOSE" },
+  { symbol: "PTB", name: "Phú Tài - CTCP Phú Tài", exchange: "HOSE" },
+  { symbol: "MCH", name: "Masan Consumer - CTCP Hàng Tiêu dùng Masan", exchange: "HOSE" },
+  { symbol: "BSR", name: "Lọc Hóa dầu Bình Sơn - CTCP Lọc Hóa Dầu Bình Sơn", exchange: "HOSE" },
+  // HNX - popular stocks
+  { symbol: "SHB", name: "SHB - NH TMCP Sài Gòn - Hà Nội", exchange: "HNX" },
+  { symbol: "PVS", name: "PVS - Tổng Công ty CP Dịch vụ Kỹ thuật DK VN", exchange: "HNX" },
+  { symbol: "NVB", name: "NCB - NH TMCP Quốc Dân", exchange: "HNX" },
+  { symbol: "BVS", name: "Bảo Việt Securities - CTCP Chứng khoán Bảo Việt", exchange: "HNX" },
+  { symbol: "HUT", name: "Tasco - CTCP Tasco", exchange: "HNX" },
+  { symbol: "PVI", name: "PVI Holdings - CTCP PVI", exchange: "HNX" },
+  { symbol: "CEO", name: "C.E.O Group - CTCP Tập đoàn C.E.O", exchange: "HNX" },
+  { symbol: "VCS", name: "Vicostone - CTCP Vicostone", exchange: "HNX" },
+  { symbol: "IDC", name: "IDC - Tổng Công ty Đầu tư Phát triển CN", exchange: "HNX" },
+  { symbol: "HBC", name: "Xây dựng Hoà Bình - CTCP Xây dựng và Kinh doanh ĐT Hoà Bình", exchange: "HNX" },
+  { symbol: "KLB", name: "Kienlongbank - NH TMCP Kiên Long", exchange: "HNX" },
+  { symbol: "BAB", name: "BacABank - NH TMCP Bắc Á", exchange: "HNX" },
+  { symbol: "SGB", name: "Saigonbank - NH TMCP Sài Gòn Công Thương", exchange: "HNX" },
+  { symbol: "MBS", name: "MB Securities - CTCP Chứng khoán MB", exchange: "HNX" },
+  { symbol: "SHS", name: "SHS - CTCP Chứng khoán Sài Gòn - Hà Nội", exchange: "HNX" },
+  { symbol: "PGS", name: "PGS - CTCP Kinh doanh Khí miền Nam", exchange: "HNX" },
+  { symbol: "SD9", name: "Sông Đà 9 - CTCP Sông Đà 9", exchange: "HNX" },
+  { symbol: "HAI", name: "HAI - CTCP Nông nghiệp Hải Dương", exchange: "HNX" },
+  { symbol: "PTI", name: "PTI - CTCP Bảo hiểm Bưu điện", exchange: "HNX" },
+  { symbol: "VGS", name: "Ống Thép Việt Đức - CTCP Ống thép Việt Đức VG PIPE", exchange: "HNX" },
+  { symbol: "HLD", name: "CIENCO4 Land - CTCP Đầu tư và Phát triển BĐS An Đình", exchange: "HNX" },
+  { symbol: "CTP", name: "CTP - CTCP Công trình Giao thông Vận tải Cần Thơ", exchange: "HNX" },
+  { symbol: "NBB", name: "Năm Bảy Bảy - CTCP Đầu tư Năm Bảy Bảy", exchange: "HNX" },
+  { symbol: "HCC", name: "Gạch Đồng Tâm - CTCP Gạch Đồng Tâm", exchange: "HNX" },
+  { symbol: "NET", name: "Bột giặt NET - CTCP Bột giặt NET", exchange: "HNX" },
+  { symbol: "BCC", name: "Xi măng Bỉm Sơn - CTCP Xi măng Bỉm Sơn", exchange: "HNX" },
+  { symbol: "HGM", name: "HGMC - CTCP Cơ khí và Khoáng sản Hà Giang", exchange: "HNX" },
+  { symbol: "PVB", name: "PV Drilling - CTCP Bảo hiểm PVI", exchange: "HNX" },
+  { symbol: "ACM", name: "Khoáng sản Á Châu - CTCP Khoáng sản Á Châu", exchange: "HNX" },
+  { symbol: "PLC", name: "Dầu nhờn PLC - Tổng Công ty Hóa dầu Petrolimex", exchange: "HNX" },
+  // UpCOM - popular stocks
+  { symbol: "OIL", name: "PVOil - Tổng Công ty Dầu Việt Nam", exchange: "UpCOM" },
+  { symbol: "VEA", name: "Veam - Tổng Công ty Máy động lực và Máy nông nghiệp VN", exchange: "UpCOM" },
+  { symbol: "QNS", name: "Đường Quảng Ngãi - CTCP Đường Quảng Ngãi", exchange: "UpCOM" },
+  { symbol: "VGT", name: "Vinatex - Tập đoàn Dệt May VN", exchange: "UpCOM" },
+  { symbol: "VCR", name: "VCR - CTCP Đầu tư và Phát triển Du lịch Vinaconex", exchange: "UpCOM" },
+  { symbol: "ABI", name: "ABI - CTCP Bảo hiểm Ngân hàng Nông nghiệp", exchange: "UpCOM" },
+  { symbol: "HPT", name: "HPT - CTCP Dịch vụ Công nghệ Tin học HPT", exchange: "UpCOM" },
+  { symbol: "TV2", name: "Tư vấn Xây dựng Điện 2 - CTCP Tư vấn Xây dựng Điện 2", exchange: "UpCOM" },
+  { symbol: "PGD", name: "Gas Petrolimex - CTCP Kinh doanh Khí hóa lỏng Miền Nam", exchange: "UpCOM" },
+  { symbol: "FOX", name: "Bao bì Dầu thực vật - CTCP Bao bì Dầu thực vật", exchange: "UpCOM" },
+  { symbol: "VPC", name: "VPC - CTCP Xây dựng và Kinh doanh Địa ốc Việt Phú", exchange: "UpCOM" },
+  { symbol: "PPY", name: "Dầu khí Phan Vũ - CTCP Phan Vũ", exchange: "UpCOM" },
+  { symbol: "MST", name: "Masan Nutri-Science - CTCP Masan Nutri-Science", exchange: "UpCOM" },
+  { symbol: "VCG", name: "Vinaconex - Tổng Công ty CP Xuất nhập khẩu và Xây dựng VN", exchange: "UpCOM" },
+  { symbol: "TDG", name: "TDG - CTCP Đầu tư và Phát triển TDG Global", exchange: "UpCOM" },
+  { symbol: "AAS", name: "Chứng khoán SmartInvest - CTCP CK SmartInvest", exchange: "UpCOM" },
+  { symbol: "UIC", name: "UIC - CTCP Đầu tư Phát triển Nhà và ĐT Idico", exchange: "UpCOM" },
+  { symbol: "CST", name: "CST - CTCP Than Cao Sơn - Vinacomin", exchange: "UpCOM" },
+  { symbol: "HNI", name: "HNI - CTCP Dệt may Hà Nội", exchange: "UpCOM" },
+  { symbol: "BGW", name: "BGW - Nước sạch Bắc Giang", exchange: "UpCOM" },
 ];
 
 const VN_PRICES_FALLBACK: Record<string, number> = {
@@ -305,35 +376,40 @@ async function fetchVNIndices() {
     const hnxOpen = hnxSym?.open ?? 223;
     const hnxChange = hnxPrice - hnxOpen;
 
+    // VN30 ~10% above VNINDEX, HNX30 ~360, VN100 ~1480
+    const vn30Price = Math.round(vnPrice * 1.12 * 100) / 100;
+    const vn30Change = Math.round(vnChange * 1.1 * 100) / 100;
+    const hxn30Price = 345 + (hnxPrice - 220) * 0.6;
+    const hnx30Change = Math.round(hnxChange * 0.8 * 100) / 100;
+    const vn100Price = Math.round(vnPrice * 1.17 * 100) / 100;
+    const vn100Change = Math.round(vnChange * 1.05 * 100) / 100;
+    const upcomPrice = 93.5 + (vnPrice - 1280) * 0.03;
+
+    const idx = (price: number, change: number, high?: number, low?: number) => ({
+      price: Math.round(price * 100) / 100,
+      change: Math.round(change * 100) / 100,
+      changePercent: Math.round((change / (price - change || 1)) * 10000) / 100,
+      high: high ?? price,
+      low: low ?? price,
+      lastUpdated: new Date().toISOString(),
+    });
+
     return {
-      VNINDEX: {
-        price: Math.round(vnPrice * 100) / 100,
-        change: Math.round(vnChange * 100) / 100,
-        changePercent: Math.round((vnChange / vnOpen) * 10000) / 100,
-        high: vnSym?.high ?? vnPrice,
-        low: vnSym?.low ?? vnPrice,
-        lastUpdated: new Date().toISOString(),
-      },
-      HNXINDEX: {
-        price: Math.round(hnxPrice * 100) / 100,
-        change: Math.round(hnxChange * 100) / 100,
-        changePercent: Math.round((hnxChange / hnxOpen) * 10000) / 100,
-        high: hnxSym?.high ?? hnxPrice,
-        low: hnxSym?.low ?? hnxPrice,
-        lastUpdated: new Date().toISOString(),
-      },
-      UPCOMINDEX: {
-        price: 93.5,
-        change: 0.3,
-        changePercent: 0.32,
-        lastUpdated: new Date().toISOString(),
-      },
+      VNINDEX: idx(vnPrice, vnChange, vnSym?.high, vnSym?.low),
+      HNXINDEX: idx(hnxPrice, hnxChange, hnxSym?.high, hnxSym?.low),
+      UPCOMINDEX: idx(upcomPrice, vnChange * 0.02, undefined, undefined),
+      VN30: idx(vn30Price, vn30Change),
+      HNX30: idx(hxn30Price, hnx30Change),
+      VN100: idx(vn100Price, vn100Change),
     };
   } catch {
     return {
-      VNINDEX: { price: 1280, change: 8.5, changePercent: 0.67, lastUpdated: new Date().toISOString() },
-      HNXINDEX: { price: 225.5, change: 1.2, changePercent: 0.53, lastUpdated: new Date().toISOString() },
-      UPCOMINDEX: { price: 93.5, change: 0.3, changePercent: 0.32, lastUpdated: new Date().toISOString() },
+      VNINDEX: { price: 1280, change: 8.5, changePercent: 0.67, high: 1285, low: 1272, lastUpdated: new Date().toISOString() },
+      HNXINDEX: { price: 225.5, change: 1.2, changePercent: 0.53, high: 227, low: 224, lastUpdated: new Date().toISOString() },
+      UPCOMINDEX: { price: 93.5, change: 0.3, changePercent: 0.32, high: 94, low: 93, lastUpdated: new Date().toISOString() },
+      VN30: { price: 1435, change: 9.2, changePercent: 0.64, high: 1441, low: 1428, lastUpdated: new Date().toISOString() },
+      HNX30: { price: 347, change: 1.8, changePercent: 0.52, high: 349, low: 345, lastUpdated: new Date().toISOString() },
+      VN100: { price: 1498, change: 9.8, changePercent: 0.66, high: 1504, low: 1490, lastUpdated: new Date().toISOString() },
     };
   }
 }
@@ -472,7 +548,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (exchange) {
         results = results.filter((s) => s.exchange.toLowerCase() === exchange.toLowerCase());
       }
-      res.json(results.slice(0, 20));
+      const sliced = results.slice(0, 20);
+
+      // If query looks like an exact symbol not in our list, try live VPS lookup
+      if (q && q.length >= 2 && sliced.length === 0) {
+        try {
+          const batch = await fetchVNStockPriceBatch([q.toUpperCase()]);
+          const found = batch[q.toUpperCase()];
+          if (found) {
+            return res.json([{ symbol: found.symbol, name: found.symbol, exchange: found.exchange }]);
+          }
+        } catch {}
+      }
+
+      res.json(sliced);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Live stock lookup by symbol (any VN stock)
+  app.get("/api/stocks/lookup/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      const key = `lookup_${symbol}`;
+      const data = await cached(priceCache, key, PRICE_TTL, async () => {
+        const batch = await fetchVNStockPriceBatch([symbol]);
+        return batch[symbol] || null;
+      });
+      if (!data) return res.status(404).json({ error: "Không tìm thấy mã cổ phiếu" });
+      // Also find metadata from static list
+      const meta = VN_STOCK_LIST.find(s => s.symbol === symbol);
+      res.json({ ...data, name: meta?.name || symbol });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -644,38 +751,71 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { type, symbol } = req.params;
       const days = parseInt(req.query.days as string) || 30;
-      const now = Date.now();
-      const data = [];
+      // currentPrice can be passed by frontend to anchor the chart to the real price
+      const currentPriceParam = parseFloat(req.query.currentPrice as string) || 0;
 
-      let basePrice = 100;
-      if (type === "stock") basePrice = VN_PRICES_FALLBACK[symbol] || 50000;
-      else if (type === "crypto") {
-        const cryptoPrices: Record<string, number> = {
-          bitcoin: 70000, ethereum: 2000, binancecoin: 640, solana: 86,
-          ripple: 0.6, cardano: 0.45, dogecoin: 0.15, tron: 0.12,
-        };
-        basePrice = cryptoPrices[symbol] || 100;
-      } else if (type === "gold") basePrice = 2900;
-      else if (type === "oil") basePrice = 88;
+      // Determine end price (the most recent data point = today's price)
+      let endPrice = currentPriceParam;
 
-      let price = basePrice * (0.85 + Math.random() * 0.15);
-      for (let i = days; i >= 0; i--) {
-        const time = Math.floor((now - i * 86400000) / 1000);
-        const change = price * (Math.random() - 0.48) * 0.025;
-        price = Math.max(price + change, basePrice * 0.5);
-        const open = price;
-        const close = price + price * (Math.random() - 0.5) * 0.01;
-        const high = Math.max(open, close) * (1 + Math.random() * 0.005);
-        const low = Math.min(open, close) * (1 - Math.random() * 0.005);
-        data.push({
-          time,
-          open: Math.round(open * 100) / 100,
-          high: Math.round(high * 100) / 100,
-          low: Math.round(low * 100) / 100,
-          close: Math.round(close * 100) / 100,
-          volume: Math.floor(Math.random() * 1000000),
-        });
+      if (!endPrice) {
+        if (type === "stock") {
+          // Try to fetch real price from VPS
+          try {
+            const batch = await fetchVNStockPriceBatch([symbol.toUpperCase()]);
+            endPrice = batch[symbol.toUpperCase()]?.price || VN_PRICES_FALLBACK[symbol.toUpperCase()] || 50000;
+          } catch {
+            endPrice = VN_PRICES_FALLBACK[symbol.toUpperCase()] || 50000;
+          }
+        } else if (type === "index") {
+          const indexFallback: Record<string, number> = {
+            VNINDEX: 1280, HNXINDEX: 225.5, UPCOMINDEX: 93.5,
+            VN30: 1435, HNX30: 347, VN100: 1498,
+          };
+          endPrice = indexFallback[symbol.toUpperCase()] || 1000;
+        } else if (type === "crypto") {
+          const cryptoPrices: Record<string, number> = {
+            bitcoin: 70000, ethereum: 2000, binancecoin: 640, solana: 86,
+            ripple: 0.6, cardano: 0.45, dogecoin: 0.15, tron: 0.12,
+          };
+          endPrice = cryptoPrices[symbol.toLowerCase()] || 100;
+        } else if (type === "gold") {
+          endPrice = 2900;
+        } else if (type === "oil") {
+          endPrice = 88;
+        }
       }
+
+      // Daily volatility by type
+      const volatility = type === "stock" ? 0.018 : type === "index" ? 0.008 : type === "crypto" ? 0.04 : 0.015;
+
+      // Generate prices backwards from endPrice
+      const prices: number[] = [endPrice];
+      for (let i = 1; i <= days; i++) {
+        const prev = prices[prices.length - 1];
+        const change = prev * (Math.random() - 0.48) * volatility;
+        prices.push(Math.max(prev - change, endPrice * 0.5));
+      }
+      prices.reverse(); // now oldest → newest, ending at endPrice
+
+      const now = Date.now();
+      const data = prices.map((price, i) => {
+        const time = Math.floor((now - (days - i) * 86400000) / 1000);
+        const spread = price * 0.005;
+        const open = price + (Math.random() - 0.5) * spread;
+        const close = price;
+        const high = Math.max(open, close) * (1 + Math.random() * 0.003);
+        const low = Math.min(open, close) * (1 - Math.random() * 0.003);
+        const dec = type === "stock" ? 0 : type === "index" ? 2 : 4;
+        return {
+          time,
+          open: parseFloat(open.toFixed(dec)),
+          high: parseFloat(high.toFixed(dec)),
+          low: parseFloat(low.toFixed(dec)),
+          close: parseFloat(close.toFixed(dec)),
+          volume: Math.floor(Math.random() * 1000000),
+        };
+      });
+
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

@@ -10,6 +10,7 @@ interface Props {
   color?: string;
   height?: number;
   mini?: boolean;
+  currentPrice?: number;
 }
 
 const CustomTooltip = ({ active, payload, label, currency }: any) => {
@@ -28,10 +29,11 @@ const CustomTooltip = ({ active, payload, label, currency }: any) => {
   return null;
 };
 
-export default function PriceChart({ type, symbol, days = 30, color = "#1A73E8", height = 160, mini = false }: Props) {
+export default function PriceChart({ type, symbol, days = 30, color = "#1A73E8", height = 160, mini = false, currentPrice }: Props) {
+  const priceParam = currentPrice ? `&currentPrice=${currentPrice}` : "";
   const { data, isLoading } = useQuery<HistoricalPrice[]>({
-    queryKey: [`/api/historical/${type}/${symbol}`, days],
-    queryFn: () => fetch(`/api/historical/${type}/${symbol}?days=${days}`).then(r => r.json()),
+    queryKey: [`/api/historical/${type}/${symbol}`, days, currentPrice],
+    queryFn: () => fetch(`/api/historical/${type}/${symbol}?days=${days}${priceParam}`).then(r => r.json()),
     refetchInterval: 120_000,
   });
 
