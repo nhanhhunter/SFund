@@ -43,9 +43,9 @@
   --chart-3: 145 65% 38%;
   --chart-4: 280 70% 48%;
   --chart-5: 15 80% 52%;
-  --font-sans: New York, Georgia, serif;
-  --font-serif: New York, Georgia, serif;
-  --font-mono: Menlo, monospace;
+  --font-sans: 'New York', 'Georgia', 'Times New Roman', ui-serif, serif;
+  --font-serif: 'New York', 'Georgia', 'Times New Roman', ui-serif, serif;
+  --font-mono: Menlo, 'Courier New', monospace;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(210 85% 48% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(210 85% 48% / 0.00);

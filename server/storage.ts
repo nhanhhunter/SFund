@@ -1,37 +1,98 @@
-import { type User, type InsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import type { PortfolioItem, InsertPortfolioItem, WatchlistItem, InsertWatchlistItem } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getPortfolio(): Promise<PortfolioItem[]>;
+  getPortfolioItem(id: string): Promise<PortfolioItem | undefined>;
+  addPortfolioItem(item: InsertPortfolioItem): Promise<PortfolioItem>;
+  updatePortfolioItem(id: string, item: Partial<InsertPortfolioItem>): Promise<PortfolioItem | undefined>;
+  deletePortfolioItem(id: string): Promise<boolean>;
+  getWatchlist(): Promise<WatchlistItem[]>;
+  addWatchlistItem(item: InsertWatchlistItem): Promise<WatchlistItem>;
+  removeWatchlistItem(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private portfolio: Map<string, PortfolioItem>;
+  private watchlist: Map<string, WatchlistItem>;
 
   constructor() {
-    this.users = new Map();
+    this.portfolio = new Map();
+    this.watchlist = new Map();
+    this.seedData();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  private seedData() {
+    const items: InsertPortfolioItem[] = [
+      { symbol: "VNM", name: "Vinamilk", type: "stock", quantity: 500, avgBuyPrice: 78500, notes: "Cổ phiếu tiêu dùng ổn định" },
+      { symbol: "FPT", name: "FPT Corp", type: "stock", quantity: 300, avgBuyPrice: 135000, notes: "Tăng trưởng công nghệ" },
+      { symbol: "VCB", name: "Vietcombank", type: "stock", quantity: 200, avgBuyPrice: 95000, notes: "Ngân hàng hàng đầu" },
+      { symbol: "HPG", name: "Hòa Phát Group", type: "stock", quantity: 1000, avgBuyPrice: 28000, notes: "Thép & bất động sản" },
+      { symbol: "bitcoin", name: "Bitcoin", type: "crypto", quantity: 0.5, avgBuyPrice: 65000, notes: "Digital gold" },
+      { symbol: "ethereum", name: "Ethereum", type: "crypto", quantity: 2, avgBuyPrice: 3200, notes: "Smart contract platform" },
+      { symbol: "XAU", name: "Vàng 24K", type: "gold", quantity: 5, avgBuyPrice: 7800000, notes: "Lượng vàng (chỉ)" },
+      { symbol: "WTI", name: "Dầu WTI", type: "oil", quantity: 10, avgBuyPrice: 78, notes: "Hợp đồng dầu thô" },
+    ];
+
+    for (const item of items) {
+      const id = randomUUID();
+      const fullItem: PortfolioItem = { ...item, id, addedAt: new Date().toISOString() };
+      this.portfolio.set(id, fullItem);
+    }
+
+    const watchItems: InsertWatchlistItem[] = [
+      { symbol: "VIC", name: "Vingroup", type: "stock" },
+      { symbol: "TCB", name: "Techcombank", type: "stock" },
+      { symbol: "MBB", name: "MB Bank", type: "stock" },
+      { symbol: "solana", name: "Solana", type: "crypto" },
+    ];
+
+    for (const item of watchItems) {
+      const id = randomUUID();
+      this.watchlist.set(id, { ...item, id, addedAt: new Date().toISOString() });
+    }
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getPortfolio(): Promise<PortfolioItem[]> {
+    return Array.from(this.portfolio.values());
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async getPortfolioItem(id: string): Promise<PortfolioItem | undefined> {
+    return this.portfolio.get(id);
+  }
+
+  async addPortfolioItem(item: InsertPortfolioItem): Promise<PortfolioItem> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const fullItem: PortfolioItem = { ...item, id, addedAt: new Date().toISOString() };
+    this.portfolio.set(id, fullItem);
+    return fullItem;
+  }
+
+  async updatePortfolioItem(id: string, updates: Partial<InsertPortfolioItem>): Promise<PortfolioItem | undefined> {
+    const existing = this.portfolio.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.portfolio.set(id, updated);
+    return updated;
+  }
+
+  async deletePortfolioItem(id: string): Promise<boolean> {
+    return this.portfolio.delete(id);
+  }
+
+  async getWatchlist(): Promise<WatchlistItem[]> {
+    return Array.from(this.watchlist.values());
+  }
+
+  async addWatchlistItem(item: InsertWatchlistItem): Promise<WatchlistItem> {
+    const id = randomUUID();
+    const fullItem: WatchlistItem = { ...item, id, addedAt: new Date().toISOString() };
+    this.watchlist.set(id, fullItem);
+    return fullItem;
+  }
+
+  async removeWatchlistItem(id: string): Promise<boolean> {
+    return this.watchlist.delete(id);
   }
 }
 
