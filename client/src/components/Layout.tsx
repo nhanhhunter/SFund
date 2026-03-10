@@ -187,7 +187,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
             <TrendingUp className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">VN Finance</span>
+          <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">SFund</span>
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
@@ -217,7 +217,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
       </aside>
-
       {/* Mobile header */}
       <div className="fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center px-4 md:hidden z-50">
         <div className="flex items-center gap-2 flex-1">
@@ -230,7 +229,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Menu className="w-5 h-5" />
         </Button>
       </div>
-
       {/* Mobile sidebar */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
@@ -259,12 +257,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </aside>
         </div>
       )}
-
       {/* Main content */}
       <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
         {children}
       </main>
-
       {showSidebarSettings && (
         <SidebarSettingsModal
           items={navItems}
