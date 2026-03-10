@@ -1,125 +1,279 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Plus, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
-import { CRYPTO_LIST } from "@shared/schema";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
 import { queryClient } from "@/lib/queryClient";
 
-const CRYPTO_ICONS: Record<string, string> = {
-  bitcoin: "₿", ethereum: "Ξ", binancecoin: "BNB", solana: "◎",
-  ripple: "XRP", cardano: "ADA", dogecoin: "Ð", tron: "TRX",
-};
+type Period = "1" | "7" | "30";
 
 const CRYPTO_COLORS: Record<string, string> = {
   bitcoin: "#f7931a", ethereum: "#627eea", binancecoin: "#f3ba2f",
   solana: "#9945ff", ripple: "#346aa9", cardano: "#0033ad",
-  dogecoin: "#c2a633", tron: "#ef0027",
+  dogecoin: "#c2a633", tron: "#ef0027", polkadot: "#e6007a",
+  avalanche: "#e84142", chainlink: "#2a5ada", uniswap: "#ff007a",
+  litecoin: "#bfbbbb", stellar: "#0d98ba",
 };
 
-export default function CryptoPage() {
-  const [selected, setSelected] = useState<string | null>(null);
+const DEFAULT_COINS = ["bitcoin", "ethereum"];
 
-  const ids = CRYPTO_LIST.map(c => c.symbol).join(",");
+function useLocalStorage<T>(key: string, def: T) {
+  const [v, setV] = useState<T>(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch { return def; }
+  });
+  const set = (val: T) => { setV(val); try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+  return [v, set] as const;
+}
+
+function CoinSearchModal({ onAdd, onClose, existingIds }: {
+  onAdd: (id: string, symbol: string, name: string) => void;
+  onClose: () => void;
+  existingIds: string[];
+}) {
+  const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { data: results, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/crypto/search", query],
+    queryFn: () => query.trim().length > 0
+      ? fetch(`/api/crypto/search?q=${encodeURIComponent(query)}`).then(r => r.json())
+      : Promise.resolve([]),
+    enabled: query.trim().length > 1,
+    staleTime: 30000,
+  });
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-card border border-card-border rounded-2xl p-5 w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold">Thêm đồng coin</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            ref={inputRef}
+            placeholder="Tìm Bitcoin, Ethereum, Solana..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="pl-9"
+            data-testid="input-crypto-search"
+          />
+        </div>
+        <div className="space-y-1 max-h-72 overflow-y-auto">
+          {isLoading && query.length > 1 && (
+            <div className="p-3 text-center text-sm text-muted-foreground">Đang tìm...</div>
+          )}
+          {results?.map(coin => {
+            const already = existingIds.includes(coin.id);
+            return (
+              <button
+                key={coin.id}
+                disabled={already}
+                onClick={() => { onAdd(coin.id, coin.symbol, coin.name); onClose(); }}
+                data-testid={`crypto-search-result-${coin.id}`}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors",
+                  already ? "opacity-40 cursor-not-allowed bg-muted" : "hover:bg-muted"
+                )}
+              >
+                {coin.thumb ? (
+                  <img src={coin.thumb} className="w-7 h-7 rounded-full" alt={coin.symbol} />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-muted-foreground/20 flex items-center justify-center text-xs font-bold">
+                    {coin.symbol?.slice(0, 2)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{coin.symbol}</span>
+                    {coin.marketCapRank && (
+                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#{coin.marketCapRank}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{coin.name}</p>
+                </div>
+                {already ? (
+                  <span className="text-xs text-muted-foreground">Đã có</span>
+                ) : (
+                  <Plus className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+            );
+          })}
+          {results?.length === 0 && query.length > 1 && !isLoading && (
+            <p className="text-sm text-muted-foreground text-center py-4">Không tìm thấy kết quả</p>
+          )}
+          {query.length <= 1 && (
+            <p className="text-sm text-muted-foreground text-center py-4">Nhập ít nhất 2 ký tự để tìm kiếm</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function CryptoPage() {
+  const [coins, setCoins] = useLocalStorage<Array<{id: string; symbol: string; name: string}>>(
+    "crypto_coins",
+    DEFAULT_COINS.map(id => ({
+      id,
+      symbol: id === "bitcoin" ? "BTC" : id === "ethereum" ? "ETH" : id.toUpperCase(),
+      name: id === "bitcoin" ? "Bitcoin" : id === "ethereum" ? "Ethereum" : id,
+    }))
+  );
+  const [selected, setSelected] = useState<string | null>(coins[0]?.id || null);
+  const [period, setPeriod] = useState<Period>("7");
+  const [showSearch, setShowSearch] = useState(false);
+
+  const ids = coins.map(c => c.id).join(",");
 
   const { data: prices, isLoading, dataUpdatedAt } = useQuery<Record<string, any>>({
     queryKey: ["/api/prices/crypto", ids],
-    queryFn: () => fetch(`/api/prices/crypto?ids=${ids}`).then(r => r.json()),
+    queryFn: () => ids ? fetch(`/api/prices/crypto?ids=${ids}`).then(r => r.json()) : Promise.resolve({}),
+    enabled: !!ids,
     refetchInterval: 60_000,
   });
 
   const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("vi-VN") : "--";
-  const selectedCrypto = selected ? CRYPTO_LIST.find(c => c.symbol === selected) : null;
-  const selectedPrice = selected ? prices?.[selected] : null;
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/prices/crypto", ids] });
+
+  const selectedCoin = selected ? coins.find(c => c.id === selected) : null;
+  const selectedPrice = selected ? prices?.[selected] : null;
+
+  const removeCoin = (id: string) => {
+    const next = coins.filter(c => c.id !== id);
+    setCoins(next);
+    if (selected === id) setSelected(next[0]?.id || null);
+  };
+
+  const addCoin = (id: string, symbol: string, name: string) => {
+    if (!coins.find(c => c.id === id)) {
+      const next = [...coins, { id, symbol, name }];
+      setCoins(next);
+      setSelected(id);
+    }
+  };
+
+  const days = period === "1" ? 1 : period === "7" ? 7 : 30;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Tiền điện tử</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · 60 giây/lần</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
-          <RefreshCw className="w-3.5 h-3.5" />
-          Làm mới
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowSearch(true)} data-testid="btn-add-crypto">
+            <Plus className="w-3.5 h-3.5" />
+            Thêm coin
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
+            <RefreshCw className="w-3.5 h-3.5" />
+            Làm mới
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Crypto list */}
+        {/* Coin list */}
         <div className="lg:col-span-1 space-y-2">
-          {CRYPTO_LIST.map(crypto => {
-            const price = prices?.[crypto.symbol];
+          {coins.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm mb-3">Chưa có coin nào</p>
+              <Button size="sm" onClick={() => setShowSearch(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Thêm coin
+              </Button>
+            </div>
+          )}
+          {coins.map(coin => {
+            const price = prices?.[coin.id];
             const change = price?.usd_24h_change || 0;
-            const isActive = selected === crypto.symbol;
+            const isActive = selected === coin.id;
             return (
-              <button
-                key={crypto.symbol}
-                data-testid={`crypto-row-${crypto.symbol}`}
-                onClick={() => setSelected(crypto.symbol === selected ? null : crypto.symbol)}
+              <div
+                key={coin.id}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left",
+                  "flex items-center gap-3 px-3 py-3 rounded-xl border transition-all group",
                   isActive
                     ? "border-primary/30 bg-primary/5"
                     : "border-card-border bg-card hover:border-border hover:shadow-sm"
                 )}
               >
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                  style={{ backgroundColor: CRYPTO_COLORS[crypto.symbol] || "#888" }}
+                <button
+                  className="flex items-center gap-3 flex-1 text-left min-w-0"
+                  onClick={() => setSelected(isActive ? null : coin.id)}
+                  data-testid={`crypto-row-${coin.id}`}
                 >
-                  {CRYPTO_ICONS[crypto.symbol] || crypto.ticker.slice(0, 2)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-foreground">{crypto.ticker}</span>
-                    <span className={cn("text-xs font-medium", getChangeColor(change))}>
-                      {formatPercent(change)}
-                    </span>
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ backgroundColor: CRYPTO_COLORS[coin.id] || "#888" }}
+                  >
+                    {coin.symbol.slice(0, 3)}
                   </div>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <span className="text-xs text-muted-foreground">{crypto.name}</span>
-                    {isLoading ? (
-                      <Skeleton className="h-3 w-16" />
-                    ) : (
-                      <span className="text-xs font-bold text-foreground">
-                        {price ? formatCurrency(price.usd) : "--"}
-                      </span>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-foreground">{coin.symbol}</span>
+                      {isLoading ? <Skeleton className="h-3 w-12" /> : (
+                        <span className={cn("text-xs font-medium", getChangeColor(change))}>
+                          {formatPercent(change)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-xs text-muted-foreground truncate">{coin.name}</span>
+                      {isLoading ? <Skeleton className="h-3 w-16" /> : (
+                        <span className="text-xs font-bold text-foreground">
+                          {price ? formatCurrency(price.usd) : "--"}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={() => removeCoin(coin.id)}
+                  data-testid={`btn-remove-crypto-${coin.id}`}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-destructive/10 hover:text-destructive shrink-0"
+                  title="Xóa"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             );
           })}
         </div>
 
         {/* Detail panel */}
         <div className="lg:col-span-2 space-y-5">
-          {selectedCrypto && selectedPrice ? (
+          {selectedCoin && selectedPrice ? (
             <>
               <div
                 className="rounded-2xl p-6 border"
                 style={{
-                  background: `linear-gradient(135deg, ${CRYPTO_COLORS[selectedCrypto.symbol]}15, ${CRYPTO_COLORS[selectedCrypto.symbol]}05)`,
-                  borderColor: `${CRYPTO_COLORS[selectedCrypto.symbol]}30`,
+                  background: `linear-gradient(135deg, ${CRYPTO_COLORS[selectedCoin.id] || "#888"}15, ${CRYPTO_COLORS[selectedCoin.id] || "#888"}05)`,
+                  borderColor: `${CRYPTO_COLORS[selectedCoin.id] || "#888"}30`,
                 }}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                      style={{ backgroundColor: CRYPTO_COLORS[selectedCrypto.symbol] || "#888" }}
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                      style={{ backgroundColor: CRYPTO_COLORS[selectedCoin.id] || "#888" }}
                     >
-                      {CRYPTO_ICONS[selectedCrypto.symbol] || selectedCrypto.ticker.slice(0, 2)}
+                      {selectedCoin.symbol.slice(0, 3)}
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">{selectedCrypto.ticker}</h2>
-                      <p className="text-muted-foreground text-sm">{selectedCrypto.name}</p>
+                      <h2 className="text-xl font-bold text-foreground">{selectedCoin.symbol}</h2>
+                      <p className="text-muted-foreground text-sm">{selectedCoin.name}</p>
                     </div>
                   </div>
                   <span className={cn("px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center gap-1", getChangeBg(selectedPrice.usd_24h_change))}>
@@ -143,20 +297,38 @@ export default function CryptoPage() {
               </div>
 
               <div className="bg-card border border-card-border rounded-xl p-4">
-                <h3 className="text-sm font-semibold mb-4">Biểu đồ giá 30 ngày</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold">Biểu đồ giá {selectedCoin.symbol}</h3>
+                  <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+                    {(["1", "7", "30"] as Period[]).map(p => (
+                      <button
+                        key={p}
+                        data-testid={`btn-crypto-period-${p}`}
+                        onClick={() => setPeriod(p)}
+                        className={cn(
+                          "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                          period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <PriceChart
                   type="crypto"
-                  symbol={selectedCrypto.symbol}
-                  days={30}
+                  symbol={selectedCoin.id}
+                  days={days}
+                  currentPrice={selectedPrice.usd || undefined}
                   height={200}
-                  color={CRYPTO_COLORS[selectedCrypto.symbol]}
+                  color={CRYPTO_COLORS[selectedCoin.id] || "#888"}
                 />
               </div>
 
               <div className="bg-card border border-card-border rounded-xl p-4">
                 <NewsSection
-                  endpoint={`/api/news/crypto?categories=${selectedCrypto.ticker}`}
-                  title={`Tin tức về ${selectedCrypto.ticker}`}
+                  endpoint={`/api/news/crypto?categories=${selectedCoin.symbol}`}
+                  title={`Tin tức về ${selectedCoin.symbol}`}
                   maxItems={5}
                 />
               </div>
@@ -164,29 +336,20 @@ export default function CryptoPage() {
           ) : (
             <>
               <div className="bg-card border border-card-border rounded-xl p-4">
-                <h3 className="text-sm font-semibold mb-4">Thị trường Crypto - Biểu đồ Bitcoin</h3>
-                <PriceChart type="crypto" symbol="bitcoin" days={30} height={220} color={CRYPTO_COLORS.bitcoin} />
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {CRYPTO_LIST.slice(0, 4).map(c => {
-                  const p = prices?.[c.symbol];
-                  return (
-                    <button
-                      key={c.symbol}
-                      onClick={() => setSelected(c.symbol)}
-                      className="bg-card border border-card-border rounded-xl p-3 text-left hover:shadow-sm transition-all hover:border-primary/20"
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-bold text-sm">{c.ticker}</span>
-                        {p && <span className={cn("text-xs", getChangeColor(p.usd_24h_change))}>{formatPercent(p.usd_24h_change)}</span>}
-                      </div>
-                      <p className="text-xs text-muted-foreground">{p ? formatCurrency(p.usd) : "--"}</p>
-                      <div className="h-12 mt-2">
-                        <PriceChart type="crypto" symbol={c.symbol} days={14} height={48} mini color={CRYPTO_COLORS[c.symbol]} />
-                      </div>
-                    </button>
-                  );
-                })}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold">Biểu đồ thị trường Crypto</h3>
+                  <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+                    {(["1", "7", "30"] as Period[]).map(p => (
+                      <button key={p} onClick={() => setPeriod(p)} className={cn(
+                        "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                        period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                      )}>
+                        {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <PriceChart type="crypto" symbol="bitcoin" days={days} height={220} color={CRYPTO_COLORS.bitcoin} />
               </div>
               <div className="bg-card border border-card-border rounded-xl p-4">
                 <NewsSection endpoint="/api/news/crypto" title="Tin tức Crypto" maxItems={5} />
@@ -195,6 +358,14 @@ export default function CryptoPage() {
           )}
         </div>
       </div>
+
+      {showSearch && (
+        <CoinSearchModal
+          onAdd={addCoin}
+          onClose={() => setShowSearch(false)}
+          existingIds={coins.map(c => c.id)}
+        />
+      )}
     </div>
   );
 }

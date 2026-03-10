@@ -189,6 +189,7 @@ const VN_STOCK_LIST: Array<{ symbol: string; name: string; exchange: string }> =
   { symbol: "PVI", name: "PVI Holdings - CTCP PVI", exchange: "HNX" },
   { symbol: "CEO", name: "C.E.O Group - CTCP Tập đoàn C.E.O", exchange: "HNX" },
   { symbol: "VCS", name: "Vicostone - CTCP Vicostone", exchange: "HNX" },
+  { symbol: "SCI", name: "SCI - CTCP Đầu tư Phát triển Hạ tầng", exchange: "HNX" },
   { symbol: "IDC", name: "IDC - Tổng Công ty Đầu tư Phát triển CN", exchange: "HNX" },
   { symbol: "HBC", name: "Xây dựng Hoà Bình - CTCP Xây dựng và Kinh doanh ĐT Hoà Bình", exchange: "HNX" },
   { symbol: "KLB", name: "Kienlongbank - NH TMCP Kiên Long", exchange: "HNX" },
@@ -647,6 +648,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // CoinGecko coin search
+  app.get("/api/crypto/search", async (req, res) => {
+    try {
+      const q = ((req.query.q as string) || "").trim();
+      if (!q) return res.json([]);
+      const url = `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`;
+      const data = await fetchJson(url);
+      const coins = (data?.coins || []).slice(0, 12).map((c: any) => ({
+        id: c.id,
+        symbol: c.symbol?.toUpperCase(),
+        name: c.name,
+        thumb: c.thumb,
+        marketCapRank: c.market_cap_rank,
+      }));
+      res.json(coins);
+    } catch (err: any) {
+      res.json([]);
+    }
+  });
+
   app.get("/api/prices/crypto", async (req, res) => {
     try {
       const ids = (req.query.ids as string) || "bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron";
@@ -697,8 +718,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json({
         vnIndex: indices.VNINDEX,
-        hn30: indices.HNXINDEX,
+        hnxIndex: indices.HNXINDEX,
         upcom: indices.UPCOMINDEX,
+        vn30: indices.VN30,
+        hnx30: indices.HNX30,
+        vn100: indices.VN100,
         gold,
         oil,
         crypto,
