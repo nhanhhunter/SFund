@@ -184,7 +184,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar desktop */}
       <aside className="hidden md:flex flex-col w-56 border-r border-border bg-sidebar shrink-0">
         <div className="flex items-center gap-2 px-4 py-5 border-b border-sidebar-border">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[#fa00af]">
             <TrendingUp className="w-4 h-4 text-white" />
           </div>
           <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">SFund</span>
