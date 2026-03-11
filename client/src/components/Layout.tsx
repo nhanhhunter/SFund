@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
 
 type NavItemDef = { href: string; label: string; iconKey: string };
 
@@ -171,6 +172,7 @@ function SidebarSettingsModal({
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, enabled, signInWithGoogle, signOutUser } = useAuth();
+  const { toast } = useToast();
   const [darkMode, setDarkMode] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showSidebarSettings, setShowSidebarSettings] = useState(false);
@@ -199,6 +201,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ? hiddenNavItems.filter((h) => h !== href)
         : [...hiddenNavItems, href],
     );
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      toast({
+        title: "Không thể đăng nhập Google",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    }
   };
 
   const NavItems = ({ onClick }: { onClick?: () => void }) => (
@@ -257,7 +271,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => void signInWithGoogle()}
+                onClick={() => void handleGoogleLogin()}
                 className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
               >
                 <LogIn className="w-4 h-4" />
@@ -333,7 +347,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => void signInWithGoogle()}
+                  onClick={() => void handleGoogleLogin()}
                   className="w-full justify-start gap-2 text-sidebar-foreground"
                 >
                   <LogIn className="w-4 h-4" />
