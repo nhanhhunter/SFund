@@ -14,15 +14,109 @@ interface Props {
   currentPrice?: number;
 }
 
+const niceNumber = (value: number, round: boolean) => {
+  const exponent = Math.floor(Math.log10(value || 1));
+  const fraction = value / 10 ** exponent;
+  let niceFraction = 1;
+
+  if (round) {
+    if (fraction < 1.5) niceFraction = 1;
+    else if (fraction < 3) niceFraction = 2;
+    else if (fraction < 7) niceFraction = 5;
+    else niceFraction = 10;
+  } else {
+    if (fraction <= 1) niceFraction = 1;
+    else if (fraction <= 2) niceFraction = 2;
+    else if (fraction <= 5) niceFraction = 5;
+    else niceFraction = 10;
+  }
+
+  return niceFraction * 10 ** exponent;
+};
+
+const buildNiceTicks = (minValue: number, maxValue: number, tickCount = 5) => {
+  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) return [0, 1];
+  if (minValue === maxValue) {
+    const padding = minValue === 0 ? 1 : niceNumber(Math.abs(minValue) * 0.05, true);
+    return [minValue - padding, minValue, minValue + padding];
+  }
+
+  const range = niceNumber(maxValue - minValue, false);
+  const step = niceNumber(range / Math.max(tickCount - 1, 1), true);
+  const start = Math.floor(minValue / step) * step;
+  const end = Math.ceil(maxValue / step) * step;
+  const ticks: number[] = [];
+
+  for (let tick = start; tick <= end + step * 0.5; tick += step) {
+    ticks.push(Number(tick.toFixed(6)));
+  }
+
+  return ticks;
+};
+
+const formatYAxisValue = (value: number, currency: "VND" | "USD") => {
+  if (currency === "VND") {
+    return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
+  }
+
+  const decimals = value < 10 ? 2 : value < 100 ? 1 : 0;
+  return `$${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value)}`;
+};
+
+const getTimeTickStep = (spanSeconds: number) => {
+  const hour = 3600;
+  const day = 86400;
+  if (spanSeconds <= day) return 4 * hour;
+  if (spanSeconds <= 7 * day) return day;
+  if (spanSeconds <= 14 * day) return 2 * day;
+  return 5 * day;
+};
+
+const buildTimeTicks = (times: number[]) => {
+  if (times.length < 2) return times;
+  const start = times[0];
+  const end = times[times.length - 1];
+  const step = getTimeTickStep(end - start);
+  const ticks: number[] = [];
+  let cursor = Math.ceil(start / step) * step;
+
+  ticks.push(start);
+  while (cursor < end) {
+    if (cursor > start) ticks.push(cursor);
+    cursor += step;
+  }
+  if (ticks[ticks.length - 1] !== end) ticks.push(end);
+  return ticks;
+};
+
+const formatTimeTick = (unix: number, spanSeconds: number) => {
+  const date = new Date(unix * 1000);
+  if (spanSeconds <= 86400) {
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  }
+  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+};
+
 const CustomTooltip = ({ active, payload, label, currency }: any) => {
   if (active && payload?.length) {
     const val = payload[0]?.value;
     const formatted = currency === "VND"
       ? new Intl.NumberFormat("vi-VN").format(val) + "đ"
       : `$${Number(val).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+    const date = new Date(label * 1000);
     return (
       <div className="bg-card border border-card-border rounded-lg p-2.5 shadow-md text-xs">
-        <p className="text-muted-foreground mb-0.5">{new Date(label * 1000).toLocaleDateString("vi-VN")}</p>
+        <p className="text-muted-foreground mb-0.5">
+          {date.toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
         <p className="font-semibold text-foreground">{formatted}</p>
       </div>
     );
@@ -46,12 +140,15 @@ export default function PriceChart({ type, symbol, days = 30, color = "#1A73E8",
     </div>
   );
 
-  const currency = type === "stock" ? "VND" : "USD";
+  const currency: "VND" | "USD" = type === "stock" || symbol.endsWith("_VND") ? "VND" : "USD";
   const chartData = data.map((d) => ({ time: d.time, price: d.close }));
   const minVal = Math.min(...chartData.map(d => d.price));
   const maxVal = Math.max(...chartData.map(d => d.price));
   const isUp = chartData[chartData.length - 1]?.price >= chartData[0]?.price;
   const chartColor = isUp ? "#10b981" : "#f43f5e";
+  const yTicks = buildNiceTicks(minVal, maxVal, 5);
+  const timeTicks = buildTimeTicks(chartData.map((item) => item.time));
+  const spanSeconds = Math.max(chartData[chartData.length - 1].time - chartData[0].time, 0);
 
   if (mini) {
     return (
@@ -64,7 +161,7 @@ export default function PriceChart({ type, symbol, days = 30, color = "#1A73E8",
             </linearGradient>
           </defs>
           <Area type="monotone" dataKey="price" stroke={chartColor} strokeWidth={1.5} fill={`url(#mini-${symbol})`} dot={false} />
-          <YAxis domain={[minVal * 0.998, maxVal * 1.002]} hide />
+          <YAxis domain={[yTicks[0], yTicks[yTicks.length - 1]]} hide />
         </AreaChart>
       </ResponsiveContainer>
     );
@@ -81,22 +178,23 @@ export default function PriceChart({ type, symbol, days = 30, color = "#1A73E8",
         </defs>
         <XAxis
           dataKey="time"
-          tickFormatter={(t) => {
-            const d = new Date(t * 1000);
-            return `${d.getDate()}/${d.getMonth() + 1}`;
-          }}
+          type="number"
+          domain={[chartData[0].time, chartData[chartData.length - 1].time]}
+          ticks={timeTicks}
+          tickFormatter={(t) => formatTimeTick(t, spanSeconds)}
           tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
           axisLine={false}
           tickLine={false}
-          interval="preserveStartEnd"
+          minTickGap={24}
         />
         <YAxis
-          domain={[minVal * 0.996, maxVal * 1.004]}
+          domain={[yTicks[0], yTicks[yTicks.length - 1]]}
+          ticks={yTicks}
           tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
           axisLine={false}
           tickLine={false}
-          width={currency === "VND" ? 70 : 60}
-          tickFormatter={(v) => currency === "VND" ? `${(v / 1000).toFixed(0)}K` : `$${v.toFixed(0)}`}
+          width={currency === "VND" ? 88 : 68}
+          tickFormatter={(v) => formatYAxisValue(v, currency)}
         />
         <Tooltip content={<CustomTooltip currency={currency} />} />
         <Area type="monotone" dataKey="price" stroke={chartColor} strokeWidth={2} fill={`url(#grad-${symbol})`} dot={false} activeDot={{ r: 4, fill: chartColor, strokeWidth: 0 }} />

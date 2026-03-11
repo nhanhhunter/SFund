@@ -46,45 +46,50 @@ export default function NewsSection({ endpoint, title = "Tin tức", maxItems = 
               Không có tin tức
             </div>
           )
-          : news.slice(0, maxItems).map((item) => (
-            <a
-              key={item.id}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid={`news-item-${item.id?.slice(0, 20)}`}
-              className="flex gap-3 p-3 rounded-xl border border-card-border bg-card hover:border-border hover:shadow-sm transition-all group block"
-            >
-              {item.imageUrl && (
-                <img
-                  src={item.imageUrl}
-                  alt=""
-                  className="w-16 h-14 object-cover rounded-lg shrink-0 bg-muted"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                  {item.title}
-                </p>
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span className="text-xs text-muted-foreground">{item.source}</span>
-                  <span className="text-muted-foreground text-xs">·</span>
-                  <span className="text-xs text-muted-foreground">{formatTime(item.publishedAt)}</span>
-                  {item.sentiment && (
-                    <>
-                      <span className="text-muted-foreground text-xs">·</span>
-                      <span className={`text-xs flex items-center gap-0.5 ${getSentimentColor(item.sentiment)}`}>
-                        <SentimentIcon sentiment={item.sentiment} />
-                        {item.sentiment}
-                      </span>
-                    </>
-                  )}
+          : news.slice(0, maxItems).map((item) => {
+            const sentiment = item.sentiment?.trim();
+            const showSentiment = !!sentiment && sentiment.toLowerCase() !== "neutral";
+
+            return (
+              <a
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid={`news-item-${item.id?.slice(0, 20)}`}
+                className="flex gap-3 p-3 rounded-xl border border-card-border bg-card hover:border-border hover:shadow-sm transition-all group block"
+              >
+                {item.imageUrl && (
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="w-16 h-14 object-cover rounded-lg shrink-0 bg-muted"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                    {item.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground">{item.source}</span>
+                    <span className="text-muted-foreground text-xs">·</span>
+                    <span className="text-xs text-muted-foreground">{formatTime(item.publishedAt)}</span>
+                    {showSentiment && (
+                      <>
+                        <span className="text-muted-foreground text-xs">·</span>
+                        <span className={`text-xs flex items-center gap-0.5 ${getSentimentColor(sentiment)}`}>
+                          <SentimentIcon sentiment={sentiment} />
+                          {sentiment}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-          ))
+                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
+            );
+          })
         }
       </div>
     </div>

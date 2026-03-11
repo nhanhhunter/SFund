@@ -60,7 +60,7 @@ Relevant files:
 - Market indices:
   - Primary source: VPS index symbols where available
   - Fallback: stooq plus derived values
-- Gold world price: `gold-api.com`
+- Gold world price: `vang.today` API (`XAUUSD`)
 - Vietnam gold prices: `vang.today` API
   - `SJL1L10` mapped to `SJC 9999`
   - `SJ9999` mapped to `Nhẫn SJC`
@@ -71,6 +71,7 @@ Relevant files:
 
 ## Gold Page Behavior
 - World gold and Vietnam gold are shown separately.
+- World and Vietnam gold charts use `vang.today` history/detail data for 1, 7, and 30 day ranges.
 - Vietnam gold prices are fetched directly from external sources, not derived from user-entered premium.
 - The spread/premium shown on the page is calculated as:
   - fetched Vietnam gold price minus converted world gold price

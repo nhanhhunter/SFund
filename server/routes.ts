@@ -60,6 +60,7 @@ function fetchText(url: string, headers: Record<string, string> = {}): Promise<s
 const priceCache: Map<string, { data: any; ts: number }> = new Map();
 const newsCache: Map<string, { data: any; ts: number }> = new Map();
 const PRICE_TTL = 60_000;
+const GOLD_HISTORY_TTL = 300_000;
 const NEWS_TTL = 300_000;
 
 function cached<T>(cache: Map<string, { data: T; ts: number }>, key: string, ttl: number, fetcher: () => Promise<T>): Promise<T> {
@@ -251,7 +252,7 @@ async function fetchVietcombankRate(): Promise<number> {
 }
 
 async function fetchVietnamGoldPrices() {
-  const response = await fetchJson("https://www.vang.today/api/prices");
+  const response = await fetchJson("https://www.vang.today/api/prices?action=current");
   const rows = Array.isArray(response?.data) ? response.data : [];
 
   const getItem = (typeCode: string) =>
@@ -287,30 +288,148 @@ async function fetchVietnamGoldPrices() {
   };
 }
 
+const GOLD_SYMBOL_TO_TYPE_CODE: Record<string, string> = {
+  XAU: "XAUUSD",
+  XAU_USD: "XAUUSD",
+  SJC_VND: "SJL1L10",
+  NHAN_VND: "SJ9999",
+};
+
+function toIsoTime(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Date(value * 1000).toISOString();
+  }
+  if (typeof value === "string" && value) {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return new Date(parsed).toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function getGoldTypeCode(symbol: string) {
+  return GOLD_SYMBOL_TO_TYPE_CODE[symbol.toUpperCase()];
+}
+
+function getGoldEntryPrice(typeCode: string, item: any) {
+  return typeCode === "XAUUSD" ? Number(item?.buy) || 0 : Number(item?.sell) || 0;
+}
+
+function mapGoldEntriesToHistorical(typeCode: string, entries: any[]) {
+  const sorted = [...entries]
+    .filter((entry) => typeof entry?.unix === "number")
+    .sort((a, b) => a.unix - b.unix);
+
+  return sorted.map((entry) => {
+    const close = getGoldEntryPrice(typeCode, entry);
+    const delta = typeCode === "XAUUSD" ? Number(entry?.change_buy) || 0 : Number(entry?.change_sell) || 0;
+    const open = close - delta;
+    const high = Math.max(open, close);
+    const low = Math.min(open, close);
+    return {
+      time: entry.unix,
+      open,
+      high,
+      low,
+      close,
+      volume: 0,
+    };
+  });
+}
+
+async function fetchVangTodayCurrentPrices() {
+  return fetchJson("https://www.vang.today/api/prices?action=current");
+}
+
+async function fetchVangTodayDailyHistory(typeCode: string, days: number) {
+  return fetchJson(`https://www.vang.today/api/prices?type=${encodeURIComponent(typeCode)}&days=${days}`);
+}
+
+async function fetchVangTodayDateEntries(typeCode: string, date: string) {
+  return fetchJson(`https://www.vang.today/api/prices?type=${encodeURIComponent(typeCode)}&date=${encodeURIComponent(date)}`);
+}
+
+async function fetchVangTodayLatestEntries(typeCode: string) {
+  return fetchJson(`https://www.vang.today/api/prices?type=${encodeURIComponent(typeCode)}&history=1`);
+}
+
+async function fetchGoldHistoricalSeries(symbol: string, days: number) {
+  const typeCode = getGoldTypeCode(symbol);
+  if (!typeCode) {
+    throw new Error(`Unsupported gold symbol: ${symbol}`);
+  }
+
+  const safeDays = Math.max(1, Math.min(30, days));
+
+  if (safeDays === 1) {
+    const detail = await fetchVangTodayLatestEntries(typeCode);
+    const entries = Array.isArray(detail?.data?.entries) ? detail.data.entries : [];
+    return mapGoldEntriesToHistorical(typeCode, entries);
+  }
+
+  const summary = await fetchVangTodayDailyHistory(typeCode, safeDays);
+  const history = Array.isArray(summary?.history) ? [...summary.history].reverse() : [];
+
+  const daySeries = await Promise.all(
+    history.map(async (item: any) => {
+      const date = item?.date as string | undefined;
+      if (!date) return [];
+
+      try {
+        const detail = await fetchVangTodayDateEntries(typeCode, date);
+        const entries = Array.isArray(detail?.data?.entries) ? detail.data.entries : [];
+        if (entries.length > 0) {
+          return mapGoldEntriesToHistorical(typeCode, entries);
+        }
+      } catch {}
+
+      const daily = item?.prices?.[typeCode];
+      const close = getGoldEntryPrice(typeCode, daily);
+      const change = typeCode === "XAUUSD" ? Number(daily?.day_change_buy) || 0 : Number(daily?.day_change_sell) || 0;
+      const open = close - change;
+      const timestamp = Math.floor(new Date(`${date}T00:00:00+07:00`).getTime() / 1000);
+      return [{
+        time: timestamp,
+        open,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        close,
+        volume: 0,
+      }];
+    }),
+  );
+
+  return daySeries.flat().sort((a, b) => a.time - b.time);
+}
+
 async function fetchGoldPrice() {
   try {
-    const [goldData, usdToVnd, vnGold] = await Promise.all([
-      fetchJson("https://api.gold-api.com/price/XAU"),
+    const [currentGold, usdToVnd, vnGold] = await Promise.all([
+      fetchVangTodayCurrentPrices(),
       fetchVietcombankRate(),
       fetchVietnamGoldPrices(),
     ]);
-    const goldUsdPerOz = goldData?.price as number;
+    const rows = Array.isArray(currentGold?.data) ? currentGold.data : [];
+    const xau = rows.find((item: any) => item?.type_code === "XAUUSD");
+    const goldUsdPerOz = Number(xau?.buy) || 0;
     if (!goldUsdPerOz) throw new Error("No gold price");
     // 1 lượng = 37.5g, 1 troy oz = 31.1035g → 1 lượng = 1.2057 troy oz
     const goldVndPerLuong = goldUsdPerOz * (37.5 / 31.1035) * usdToVnd;
-    const change24h = goldVndPerLuong * (Math.random() - 0.45) * 0.008;
-    const prev = goldVndPerLuong - change24h;
-    const changePercent = (change24h / prev) * 100;
+    const worldChangeUsd = Number(xau?.change_buy) || 0;
+    const prevUsd = goldUsdPerOz - worldChangeUsd;
+    const change24h = worldChangeUsd * (37.5 / 31.1035) * usdToVnd;
+    const prev = prevUsd > 0 ? prevUsd * (37.5 / 31.1035) * usdToVnd : goldVndPerLuong - change24h;
+    const changePercent = prev > 0 ? (change24h / prev) * 100 : 0;
     return {
       XAU: {
         priceUsdOz: Math.round(goldUsdPerOz * 100) / 100,
-        priceVndLuong: Math.round(goldVndPerLuong / 10000) * 10000,
-        change: Math.round(change24h / 1000) * 1000,
+        priceVndLuong: Math.round(goldVndPerLuong),
+        change: Math.round(change24h),
         changePercent: Math.round(changePercent * 100) / 100,
         usdToVnd: Math.round(usdToVnd),
         usdToVndSource: "Vietcombank",
         currency: "VND",
-        lastUpdated: new Date().toISOString(),
+        source: "vang.today",
+        lastUpdated: toIsoTime(xau?.update_time ?? currentGold?.current_time),
       },
       ...vnGold,
     };
@@ -900,6 +1019,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const days = parseInt(req.query.days as string) || 30;
       const currentPriceParam = parseFloat(req.query.currentPrice as string) || 0;
 
+      if (type === "gold") {
+        const key = `gold_hist_${symbol.toUpperCase()}_${Math.max(1, Math.min(30, days))}`;
+        const data = await cached(priceCache, key, GOLD_HISTORY_TTL, () =>
+          fetchGoldHistoricalSeries(symbol, days)
+        );
+        return res.json(data);
+      }
+
       let endPrice = currentPriceParam;
 
       if (!endPrice) {
@@ -922,8 +1049,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ripple: 0.6, cardano: 0.45, dogecoin: 0.15, tron: 0.12,
           };
           endPrice = cryptoPrices[symbol.toLowerCase()] || 100;
-        } else if (type === "gold") {
-          endPrice = 2900;
         } else if (type === "oil") {
           endPrice = 88;
         }
