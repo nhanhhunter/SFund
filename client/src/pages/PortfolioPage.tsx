@@ -1,20 +1,39 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, TrendingUp, TrendingDown, BarChart3, PieChart, X, ArrowLeft } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  PieChart,
+  X,
+  ArrowLeft,
+} from "lucide-react";
+import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import type { PortfolioItem } from "@shared/schema";
+import { queryClient, fetchJson } from "@/lib/queryClient";
+import { deletePortfolioItem, listPortfolioItems } from "@/lib/user-data";
+import { cn, formatCurrency, formatPercent, getChangeBg, getChangeColor, assetTypeLabel } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/components/AuthProvider";
+import AuthGate from "@/components/AuthGate";
+import PortfolioDialog from "@/components/PortfolioDialog";
+import PriceChart from "@/components/PriceChart";
+import NewsSection from "@/components/NewsSection";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn, formatCurrency, formatPercent, getChangeColor, getChangeBg, assetTypeLabel } from "@/lib/utils";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { PortfolioItem } from "@shared/schema";
-import PortfolioDialog from "@/components/PortfolioDialog";
-import { useToast } from "@/hooks/use-toast";
-import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import PriceChart from "@/components/PriceChart";
-import NewsSection from "@/components/NewsSection";
 
 const PIE_COLORS = ["#1A73E8", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4"];
 type Period = "1" | "7" | "30";
@@ -31,23 +50,24 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
   const [period, setPeriod] = useState<Period>("7");
   const days = period === "1" ? 1 : period === "7" ? 7 : 30;
 
-  const chartType = item.type === "stock" ? "stock"
-    : item.type === "crypto" ? "crypto"
-    : item.type === "gold" ? "gold"
-    : "oil";
-
+  const chartType =
+    item.type === "stock" ? "stock" : item.type === "crypto" ? "crypto" : item.type === "gold" ? "gold" : "oil";
   const chartSymbol = item.type === "gold" ? "XAU" : item.symbol;
+  const newsEndpoint =
+    item.type === "stock"
+      ? `/api/news/stocks?tickers=${item.symbol}`
+      : item.type === "crypto"
+        ? `/api/news/crypto?categories=${item.symbol.toUpperCase()}`
+        : item.type === "gold"
+          ? "/api/news/gold"
+          : "/api/news/oil";
 
-  const newsEndpoint = item.type === "stock" ? `/api/news/stocks?tickers=${item.symbol}`
-    : item.type === "crypto" ? `/api/news/crypto?categories=${item.symbol.toUpperCase()}`
-    : item.type === "gold" ? "/api/news/gold"
-    : "/api/news/oil";
-
-  const fmtPrice = (val: number) => {
+  const formatAssetPrice = (value: number) => {
     if (item.type === "stock" || item.type === "gold") {
-      return new Intl.NumberFormat("vi-VN").format(Math.round(val)) + "đ";
+      return `${new Intl.NumberFormat("vi-VN").format(Math.round(value))}đ`;
     }
-    return formatCurrency(val);
+
+    return formatCurrency(value);
   };
 
   return (
@@ -68,15 +88,14 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
           </button>
         </div>
 
-        {/* P&L breakdown */}
         <div className="px-4 py-3 grid grid-cols-2 gap-3 border-b border-card-border">
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Giá hiện tại</p>
-            <p className="font-bold text-sm text-foreground">{fmtPrice(item.currentPrice)}</p>
+            <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.currentPrice)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Giá mua TB</p>
-            <p className="font-bold text-sm text-foreground">{fmtPrice(item.avgBuyPrice)}</p>
+            <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.avgBuyPrice)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
@@ -84,41 +103,40 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Giá trị đầu tư</p>
-            <p className="font-bold text-sm text-foreground">{fmtPrice(item.costBasis)}</p>
+            <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.costBasis)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Giá trị hiện tại</p>
-            <p className="font-bold text-sm text-foreground">{fmtPrice(item.currentValue)}</p>
+            <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.currentValue)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Lãi/Lỗ</p>
             <p className={cn("font-bold text-sm", getChangeColor(item.pnl))}>
-              {item.pnl >= 0 ? "+" : ""}{fmtPrice(Math.abs(item.pnl))}
+              {item.pnl >= 0 ? "+" : ""}
+              {formatAssetPrice(Math.abs(item.pnl))}
             </p>
           </div>
         </div>
 
-        {/* ROI badge */}
         <div className="px-4 py-3 flex items-center justify-between border-b border-card-border">
           <span className="text-xs text-muted-foreground">Tổng ROI</span>
           <span className={cn("px-2.5 py-1 rounded-xl text-sm font-semibold", getChangeBg(item.pnlPercent))}>
-            {item.pnl >= 0 ? "+" : ""}{formatPercent(item.pnlPercent)}
+            {formatPercent(item.pnlPercent)}
           </span>
         </div>
 
-        {/* Chart */}
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold">Biểu đồ giá</p>
             <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
-              {(["1", "7", "30"] as Period[]).map(p => (
+              {(["1", "7", "30"] as Period[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
                   data-testid={`btn-detail-period-${p}`}
                   className={cn(
                     "px-2 py-0.5 text-xs font-medium rounded-md transition-colors",
-                    period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                    period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
                   )}
                 >
                   {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
@@ -127,7 +145,7 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
             </div>
           </div>
           <PriceChart
-            type={chartType as any}
+            type={chartType}
             symbol={chartSymbol}
             days={days}
             currentPrice={item.currentPrice || undefined}
@@ -136,7 +154,6 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
         </div>
       </div>
 
-      {/* Related news */}
       <div className="bg-card border border-card-border rounded-xl p-4">
         <NewsSection endpoint={newsEndpoint} title="Tin liên quan" maxItems={4} />
       </div>
@@ -145,84 +162,126 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
 }
 
 export default function PortfolioPage() {
+  const { user, loading, enabled } = useAuth();
+  const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<PortfolioItem | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const { data: portfolio, isLoading } = useQuery<PortfolioItem[]>({
-    queryKey: ["/api/portfolio"],
+    queryKey: ["portfolio", user?.uid],
+    queryFn: () => listPortfolioItems(user!.uid),
+    enabled: !!user && enabled,
     refetchInterval: 60_000,
   });
 
   const { data: cryptoPrices } = useQuery<Record<string, any>>({
     queryKey: ["/api/prices/crypto"],
-    queryFn: () => fetch("/api/prices/crypto?ids=bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron").then(r => r.json()),
+    queryFn: () =>
+      fetchJson("/api/prices/crypto?ids=bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron"),
     refetchInterval: 60_000,
   });
 
-  const { data: goldData } = useQuery<any>({ queryKey: ["/api/prices/gold"], refetchInterval: 60_000 });
-  const { data: oilData } = useQuery<any>({ queryKey: ["/api/prices/oil"], refetchInterval: 60_000 });
+  const { data: goldData } = useQuery<any>({
+    queryKey: ["/api/prices/gold"],
+    refetchInterval: 60_000,
+  });
 
-  const stockSymbols = useMemo(() => {
-    return (portfolio || []).filter(i => i.type === "stock").map(i => i.symbol).join(",");
-  }, [portfolio]);
+  const { data: oilData } = useQuery<any>({
+    queryKey: ["/api/prices/oil"],
+    refetchInterval: 60_000,
+  });
+
+  const stockSymbols = useMemo(
+    () => (portfolio || []).filter((item) => item.type === "stock").map((item) => item.symbol).join(","),
+    [portfolio],
+  );
 
   const { data: vnStockPrices } = useQuery<Record<string, any>>({
     queryKey: ["/api/prices/vn-batch", stockSymbols],
-    queryFn: () => stockSymbols ? fetch(`/api/prices/vn-batch?symbols=${stockSymbols}`).then(r => r.json()) : Promise.resolve({}),
+    queryFn: () => (stockSymbols ? fetchJson(`/api/prices/vn-batch?symbols=${stockSymbols}`) : Promise.resolve({})),
     enabled: !!stockSymbols,
     refetchInterval: 60_000,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { await apiRequest("DELETE", `/api/portfolio/${id}`); },
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error("Bạn cần đăng nhập để xóa tài sản.");
+      await deletePortfolioItem(user.uid, id);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: ["portfolio", user.uid] });
+      }
       toast({ title: "Đã xóa khỏi danh mục" });
       setDeleteId(null);
     },
-    onError: (err: any) => toast({ title: "Lỗi", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => {
+      toast({ title: "Lỗi", description: err.message, variant: "destructive" });
+    },
   });
 
   const enriched: EnrichedItem[] = useMemo(() => {
-    function getCurrentPrice(item: PortfolioItem): number {
+    const getCurrentPrice = (item: PortfolioItem): number => {
       if (item.type === "crypto") return cryptoPrices?.[item.symbol]?.usd || 0;
       if (item.type === "gold") return goldData?.XAU?.priceVndLuong || item.avgBuyPrice;
       if (item.type === "oil") return (item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI)?.price || item.avgBuyPrice;
       if (item.type === "stock") return vnStockPrices?.[item.symbol]?.price || item.avgBuyPrice;
       return item.avgBuyPrice;
-    }
-    return (portfolio || []).map(item => {
+    };
+
+    return (portfolio || []).map((item) => {
       const currentPrice = getCurrentPrice(item);
       const costBasis = item.quantity * item.avgBuyPrice;
       const currentValue = item.quantity * currentPrice;
       const pnl = currentValue - costBasis;
       const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+
       return { ...item, currentPrice, costBasis, currentValue, pnl, pnlPercent };
     });
   }, [portfolio, cryptoPrices, goldData, oilData, vnStockPrices]);
 
-  const totalValue = enriched.reduce((s, i) => s + i.currentValue, 0);
-  const totalCost = enriched.reduce((s, i) => s + i.costBasis, 0);
+  const totalValue = enriched.reduce((sum, item) => sum + item.currentValue, 0);
+  const totalCost = enriched.reduce((sum, item) => sum + item.costBasis, 0);
   const totalPnl = totalValue - totalCost;
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-
   const byType = useMemo(() => {
     const groups: Record<string, number> = {};
-    for (const item of enriched) { groups[item.type] = (groups[item.type] || 0) + item.currentValue; }
-    return Object.entries(groups).map(([name, value]) => ({ name: assetTypeLabel(name), value: Math.round(value) }));
+    for (const item of enriched) groups[item.type] = (groups[item.type] || 0) + item.currentValue;
+    return Object.entries(groups).map(([name, value]) => ({
+      name: assetTypeLabel(name),
+      value: Math.round(value),
+    }));
   }, [enriched]);
 
   const formatValue = (item: EnrichedItem) => {
     if (item.type === "stock" || item.type === "gold") {
-      return new Intl.NumberFormat("vi-VN").format(Math.round(item.currentValue)) + "đ";
+      return `${new Intl.NumberFormat("vi-VN").format(Math.round(item.currentValue))}đ`;
     }
+
     return formatCurrency(item.currentValue);
   };
 
-  const selectedItem = selectedId ? enriched.find(i => i.id === selectedId) : null;
+  const selectedItem = selectedId ? enriched.find((item) => item.id === selectedId) || null : null;
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+        <Skeleton className="h-20 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AuthGate
+        title="Đăng nhập để quản lý danh mục"
+        description="Danh mục đầu tư của bạn sẽ được lưu trong Firestore và đồng bộ theo tài khoản Google."
+      />
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -237,7 +296,6 @@ export default function PortfolioPage() {
         </Button>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-2">
           <p className="text-xs text-muted-foreground mb-1">Tổng giá trị danh mục</p>
@@ -246,14 +304,13 @@ export default function PortfolioPage() {
           </div>
           <p className={cn("text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(totalPnl))}>
             {totalPnl >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-            {totalPnl >= 0 ? "+" : ""}{formatCurrency(Math.abs(totalPnl))} ({formatPercent(totalPnlPct)})
+            {totalPnl >= 0 ? "+" : ""}
+            {formatCurrency(Math.abs(totalPnl))} ({formatPercent(totalPnlPct)})
           </p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Lãi/Lỗ</p>
-          <p className={cn("text-xl font-bold", getChangeColor(totalPnl))}>
-            {totalPnl >= 0 ? "+" : ""}{formatPercent(totalPnlPct)}
-          </p>
+          <p className={cn("text-xl font-bold", getChangeColor(totalPnl))}>{formatPercent(totalPnlPct)}</p>
           <p className="text-xs text-muted-foreground mt-1">Tổng ROI</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-4">
@@ -263,20 +320,23 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      <div className={cn("grid gap-6", selectedItem ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1 lg:grid-cols-3")}>
-        {/* Portfolio table */}
-        <div className={cn(selectedItem ? "lg:col-span-2" : "lg:col-span-2")}>
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <div className="lg:col-span-2">
           <div className="bg-card border border-card-border rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-card-border">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
                 Danh sách tài sản
-                {selectedItem && <span className="text-xs text-muted-foreground ml-1">(nhấn vào hàng để xem chi tiết)</span>}
+                {selectedItem && (
+                  <span className="text-xs text-muted-foreground ml-1">(nhấn vào hàng để xem chi tiết)</span>
+                )}
               </h3>
             </div>
             {isLoading ? (
               <div className="p-4 space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 rounded-xl" />
+                ))}
               </div>
             ) : !enriched.length ? (
               <div className="p-12 text-center">
@@ -289,27 +349,29 @@ export default function PortfolioPage() {
               </div>
             ) : (
               <div className="divide-y divide-card-border">
-                {enriched.map(item => (
+                {enriched.map((item) => (
                   <div
                     key={item.id}
                     data-testid={`portfolio-item-${item.id}`}
                     onClick={() => setSelectedId(item.id === selectedId ? null : item.id)}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 hover:bg-background/50 transition-colors group cursor-pointer",
-                      item.id === selectedId && "bg-primary/5 border-l-2 border-l-primary"
+                      item.id === selectedId && "bg-primary/5 border-l-2 border-l-primary",
                     )}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-semibold text-sm text-foreground">{item.symbol.toUpperCase()}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{assetTypeLabel(item.type)}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
+                          {assetTypeLabel(item.type)}
+                        </span>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.quantity} × {item.type === "stock" || item.type === "gold"
-                          ? new Intl.NumberFormat("vi-VN").format(Math.round(item.avgBuyPrice)) + "đ"
-                          : formatCurrency(item.avgBuyPrice)
-                        }
+                        {item.quantity} ×{" "}
+                        {item.type === "stock" || item.type === "gold"
+                          ? `${new Intl.NumberFormat("vi-VN").format(Math.round(item.avgBuyPrice))}đ`
+                          : formatCurrency(item.avgBuyPrice)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -324,7 +386,10 @@ export default function PortfolioPage() {
                         size="icon"
                         className="h-7 w-7"
                         data-testid={`button-edit-${item.id}`}
-                        onClick={e => { e.stopPropagation(); setEditItem(item); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditItem(item);
+                        }}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
@@ -333,7 +398,10 @@ export default function PortfolioPage() {
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
                         data-testid={`button-delete-${item.id}`}
-                        onClick={e => { e.stopPropagation(); setDeleteId(item.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(item.id);
+                        }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -345,7 +413,6 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* Right column: detail panel or pie chart */}
         {selectedItem ? (
           <AssetDetailPanel item={selectedItem} onClose={() => setSelectedId(null)} />
         ) : (
@@ -378,17 +445,20 @@ export default function PortfolioPage() {
               <div className="bg-card border border-card-border rounded-xl p-4 mt-4">
                 <h3 className="text-sm font-semibold mb-3">Hiệu suất tốt nhất</h3>
                 <div className="space-y-2">
-                  {[...enriched].sort((a, b) => b.pnlPercent - a.pnlPercent).slice(0, 4).map(item => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
-                        <p className="text-xs text-muted-foreground">{item.name}</p>
+                  {[...enriched]
+                    .sort((a, b) => b.pnlPercent - a.pnlPercent)
+                    .slice(0, 4)
+                    .map((item) => (
+                      <div key={item.id} className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
+                          <p className="text-xs text-muted-foreground">{item.name}</p>
+                        </div>
+                        <span className={cn("text-sm font-semibold", getChangeColor(item.pnlPercent))}>
+                          {formatPercent(item.pnlPercent)}
+                        </span>
                       </div>
-                      <span className={cn("text-sm font-semibold", getChangeColor(item.pnlPercent))}>
-                        {formatPercent(item.pnlPercent)}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}
@@ -397,9 +467,20 @@ export default function PortfolioPage() {
       </div>
 
       <PortfolioDialog open={addOpen} onOpenChange={setAddOpen} />
-      <PortfolioDialog open={!!editItem} onOpenChange={(v) => { if (!v) setEditItem(undefined); }} editItem={editItem} />
+      <PortfolioDialog
+        open={!!editItem}
+        onOpenChange={(value) => {
+          if (!value) setEditItem(undefined);
+        }}
+        editItem={editItem}
+      />
 
-      <AlertDialog open={!!deleteId} onOpenChange={(v) => { if (!v) setDeleteId(null); }}>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(value) => {
+          if (!value) setDeleteId(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa tài sản?</AlertDialogTitle>

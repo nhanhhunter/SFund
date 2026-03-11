@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, fetchJson } from "@/lib/queryClient";
 
 const ALL_INDEX_CARDS = [
   { key: "vnIndex", label: "VN-Index", symbol: "VNINDEX", type: "index" as const },
@@ -192,7 +192,7 @@ export default function Dashboard() {
   const cryptoIdStr = cryptoIds.join(",");
   const { data: cryptoData } = useQuery<Record<string, any>>({
     queryKey: ["/api/prices/crypto", cryptoIdStr],
-    queryFn: () => fetch(`/api/prices/crypto?ids=${cryptoIdStr}`).then(r => r.json()),
+    queryFn: () => fetchJson(`/api/prices/crypto?ids=${cryptoIdStr}`),
     enabled: cryptoIds.length > 0,
     refetchInterval: 60_000,
   });

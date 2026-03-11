@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, fetchJson } from "@/lib/queryClient";
 
 type Period = "1" | "7" | "30";
 
@@ -40,7 +40,7 @@ function CoinSearchModal({ onAdd, onClose, existingIds }: {
   const { data: results, isLoading } = useQuery<any[]>({
     queryKey: ["/api/crypto/search", query],
     queryFn: () => query.trim().length > 0
-      ? fetch(`/api/crypto/search?q=${encodeURIComponent(query)}`).then(r => r.json())
+      ? fetchJson(`/api/crypto/search?q=${encodeURIComponent(query)}`)
       : Promise.resolve([]),
     enabled: query.trim().length > 1,
     staleTime: 30000,
@@ -136,7 +136,7 @@ export default function CryptoPage() {
 
   const { data: prices, isLoading, dataUpdatedAt } = useQuery<Record<string, any>>({
     queryKey: ["/api/prices/crypto", ids],
-    queryFn: () => ids ? fetch(`/api/prices/crypto?ids=${ids}`).then(r => r.json()) : Promise.resolve({}),
+    queryFn: () => ids ? fetchJson(`/api/prices/crypto?ids=${ids}`) : Promise.resolve({}),
     enabled: !!ids,
     refetchInterval: 60_000,
   });

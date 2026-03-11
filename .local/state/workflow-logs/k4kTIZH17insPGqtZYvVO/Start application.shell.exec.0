@@ -1,0 +1,124 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K6:01:01 AM [express] serving on port 5000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+6:01:10 AM [express] GET /api/historical/stock/VN_INDEX 200 in 2ms :: [{"time":1770530470,"open":44768.46,"high":44776.09,"low":44548.59,"close":44763.46,"volume":387619},{"time":1770616870,"open":44401.86,"high":44507.28,"low":44386.2,"close":44414.73,"volume":615500},{"time":1770703270,"open":44594.14,"high":44873.4,"low":44436.53,"close":44726.71,"volume":310480},{"time":1770789670,"open":44572.16,"high":44647.95,"low":44469.87,"close":44475.99,"volume":569085},{"time":1770876070,"open":44829.72,"high":45047.06,"low":44661.31,"close":44870.86,"volume":925006},{"time":1770962470,"open":44314.31,"high":44668.79,"low":44291.99,"close":44468.29,"volume":917228},{"time":1771048870,"open":44498.87,"high":44692.61,"low":44380.97,"close":44426.2,"volume":168208},{"time":1771135270,"open":44119.79,"high":44368.22,"low":43992.12,"close":44273.55,"volume":430695},{"time":1771221670,"open":44529.49,"high":44900.26,"low":44417.85,"close":44745.31,"volume":758549},{"time":1771308070,"open":44671.8,"high":44690.95,"low":44353.64,"close":44536.9,"volume":537440},{"time":1771394470,"open":44439.58,"high":44474.72,"low":44252.72,"close":44405.53,"volume":469275},{"time":1771480870,"open":44835.66,"high":44849.3,"low":44699.17,"close":44794.96,"volume":943911},{"time":1771567270,"open":44368.04,"high":44484.62,"low":44307.47,"close":44440.15,"volume":364982},{"time":1771653670,"open":43837.39,"high":44123.29,"low":43687.98,"close":43929.78,"volume":660269},{"time":1771740070,"open":43534.81,"high":43783.63,"low":43483.15,"close":43638.19,"volume":201330},{"time":1771826470,"open":43896.16,"high":44235.96,"low":43811.74,"close":44017.12,"volume":462210},{"time":1771912870,"open":44071.82,"high":44213.75,"low":43912.59,"close":44179.5,"volume":815251},{"time":1771999270,"open":44107.53,"high":44380.03,"low":43973.4,"close":44179.52,"volume":75014},{"time":1772085670,"open":44235.98,"high":44399.57,"low":44144.62,"close":44332.5,"volume":965531},{"time":1772172070,"open":44366.51,"high":44557.93,"low":44086.79,"close":44263.03,"volume":554383},{"time":1772258470,"open":44285.72,"high":44310.02,"low":44238.76,"close":44276.1,"volume":205180},{"time":1772344870,"open":44107.88,"high":44158.85,"low":43900.59,"close":43964.43,"volume":731075},{"time":1772431270,"open":44661.67,"high":44902.33,"low":44641.99,"close":44789.83,"volume":192957},{"time":1772517670,"open":44384.93,"high":44536.57,"low":44065.43,"close":44217.32,"volume":149916},{"time":1772604070,"open":44235.31,"high":44394.37,"low":44149.24,"close":44335.56,"volume":917498},{"time":1772690470,"open":44044.35,"high":44323.97,"low":43973.86,"close":44111.23,"volume":512110},{"time":1772776870,"open":43679.74,"high":43744.68,"low":43542,"close":43703.85,"volume":846411},{"time":1772863270,"open":43682.01,"high":43770.75,"low":43260.07,"close":43464.09,"volume":526693},{"time":1772949670,"open":43497.85,"high":43656.6,"low":43425.45,"close":43474.03,"volume":161305},{"time":1773036070,"open":43553.68,"high":43748.28,"low":43431.55,"close":43552.55,"volume":789113},{"time":1773122470,"open":43672.42,"high":43921.04,"low":43566.3,"close":43854.55,"volume":745922}]
+6:01:10 AM [express] GET /api/news/stocks 304 in 83ms :: []
+6:01:11 AM [express] GET /api/market-overview 200 in 496ms :: {"vnIndex":{"price":1280,"change":10,"changePercent":0.79,"high":1280,"low":1280,"lastUpdated":"2026-03-10T06:01:11.289Z"},"hn30":{"price":225,"change":2,"changePercent":0.9,"high":225,"low":225,"lastUpdated":"2026-03-10T06:01:11.289Z"},"upcom":{"price":93.5,"change":0.3,"changePercent":0.32,"lastUpdated":"2026-03-10T06:01:11.289Z"},"gold":{"XAU":{"priceUsdOz":5178.9,"priceVndLuong":163510000,"change":-432000,"changePercent":-0.26,"usdToVnd":26187,"currency":"VND","lastUpdated":"2026-03-10T06:01:10.947Z"}},"oil":{"WTI":{"price":88.12,"change":-6.65,"changePercent":-7.02,"currency":"USD","lastUpdated":"2026-03-10T06:01:10.904Z"},"BRENT":{"price":92.35,"change":-6.61,"changePercent":-6.68,"currency":"USD","lastUpdated":"2026-03-10T06:01:10.904Z"}},"crypto":{"binancecoin":{"usd":644.12,"usd_market_cap":87843930795.76196,"usd_24h_vol":953077393.2274392,"usd_24h_change":2.4236110552693155},"bitcoin":{"usd":69962,"usd_market_cap":1399304987870.2158,"usd_24h_vol":51632000694.40946,"usd_24h_change":3.1185434721588483},"cardano":{"usd":0.259751,"usd_market_cap":9565098690.178284,"usd_24h_vol":478093713.317043,"usd_24h_change":0.6559786734002173},"dogecoin":{"usd":0.091808,"usd_market_cap":14078620952.979172,"usd_24h_vol":1047847346.5106051,"usd_24h_change":0.419132398783103},"ethereum":{"usd":2043.41,"usd_market_cap":246661596242.48383,"usd_24h_vol":22477234208.38175,"usd_24h_change":1.6741710195979316},"ripple":{"usd":1.38,"usd_market_cap":84771773990.4436,"usd_24h_vol":2342045932.039865,"usd_24h_change":2.1626966143983157},"solana":{"usd":86.38,"usd_market_cap":49308049168.987305,"usd_24h_vol":4211810707.0190325,"usd_24h_change":2.4428921584928753},"tron":{"usd":0.286031,"usd_market_cap":27101854038.83356,"usd_24h_vol":477651099.45550025,"usd_24h_change":-1.1478018770307812}}}
+6:01:13 AM [express] GET /api/prices/vn-batch 200 in 1159ms :: {"NVB":{"symbol":"NVB","price":10700,"change":500,"changePercent":4.9,"volume":101700,"high":10800,"low":10400,"open":10800,"refPrice":10200,"ceiling":11200,"floor":9200,"currency":"VND","exchange":"HNX","lastUpdated":"2026-03-10T06:01:13.592Z"},"PVS":{"symbol":"PVS","price":43900,"change":-2000,"changePercent":-4.36,"volume":6513300,"high":46800,"low":41500,"open":45900,"refPrice":45900,"ceiling":50400,"floor":41400,"currency":"VND","exchange":"HNX","lastUpdated":"2026-03-10T06:01:13.592Z"},"SHB":{"symbol":"SHB","price":14300,"change":-50,"changePercent":-0.35,"volume":42827900,"high":14750,"low":14200,"open":14550,"refPrice":14350,"ceiling":15350,"floor":13350,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:13.592Z"},"VNM":{"symbol":"VNM","price":60700,"change":2600,"changePercent":4.48,"volume":6404900,"high":61300,"low":59500,"open":60000,"refPrice":58100,"ceiling":62100,"floor":54100,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:13.592Z"}}
+6:01:21 AM [express] GET /api/news/crypto 304 in 10345ms :: []
+6:01:25 AM [express] GET /api/market-overview 200 in 1ms :: {"vnIndex":{"price":1280,"change":10,"changePercent":0.79,"high":1280,"low":1280,"lastUpdated":"2026-03-10T06:01:11.289Z"},"hn30":{"price":225,"change":2,"changePercent":0.9,"high":225,"low":225,"lastUpdated":"2026-03-10T06:01:11.289Z"},"upcom":{"price":93.5,"change":0.3,"changePercent":0.32,"lastUpdated":"2026-03-10T06:01:11.289Z"},"gold":{"XAU":{"priceUsdOz":5178.9,"priceVndLuong":163510000,"change":-432000,"changePercent":-0.26,"usdToVnd":26187,"currency":"VND","lastUpdated":"2026-03-10T06:01:10.947Z"}},"oil":{"WTI":{"price":88.12,"change":-6.65,"changePercent":-7.02,"currency":"USD","lastUpdated":"2026-03-10T06:01:10.904Z"},"BRENT":{"price":92.35,"change":-6.61,"changePercent":-6.68,"currency":"USD","lastUpdated":"2026-03-10T06:01:10.904Z"}},"crypto":{"binancecoin":{"usd":644.12,"usd_market_cap":87843930795.76196,"usd_24h_vol":953077393.2274392,"usd_24h_change":2.4236110552693155},"bitcoin":{"usd":69962,"usd_market_cap":1399304987870.2158,"usd_24h_vol":51632000694.40946,"usd_24h_change":3.1185434721588483},"cardano":{"usd":0.259751,"usd_market_cap":9565098690.178284,"usd_24h_vol":478093713.317043,"usd_24h_change":0.6559786734002173},"dogecoin":{"usd":0.091808,"usd_market_cap":14078620952.979172,"usd_24h_vol":1047847346.5106051,"usd_24h_change":0.419132398783103},"ethereum":{"usd":2043.41,"usd_market_cap":246661596242.48383,"usd_24h_vol":22477234208.38175,"usd_24h_change":1.6741710195979316},"ripple":{"usd":1.38,"usd_market_cap":84771773990.4436,"usd_24h_vol":2342045932.039865,"usd_24h_change":2.1626966143983157},"solana":{"usd":86.38,"usd_market_cap":49308049168.987305,"usd_24h_vol":4211810707.0190325,"usd_24h_change":2.4428921584928753},"tron":{"usd":0.286031,"usd_market_cap":27101854038.83356,"usd_24h_vol":477651099.45550025,"usd_24h_change":-1.1478018770307812}}}
+6:01:26 AM [express] GET /api/prices/vn-batch 200 in 1154ms :: {"BVS":{"symbol":"BVS","price":27400,"change":300,"changePercent":1.11,"volume":543200,"high":28300,"low":27000,"open":27300,"refPrice":27100,"ceiling":29800,"floor":24400,"currency":"VND","exchange":"HNX","lastUpdated":"2026-03-10T06:01:26.436Z"},"HUT":{"symbol":"HUT","price":15000,"change":-200,"changePercent":-1.32,"volume":1253200,"high":15300,"low":13800,"open":14600,"refPrice":15200,"ceiling":16700,"floor":13700,"currency":"VND","exchange":"HNX","lastUpdated":"2026-03-10T06:01:26.436Z"},"NVB":{"symbol":"NVB","price":10700,"change":500,"changePercent":4.9,"volume":101700,"high":10800,"low":10400,"open":10800,"refPrice":10200,"ceiling":11200,"floor":9200,"currency":"VND","exchange":"HNX","lastUpdated":"2026-03-10T06:01:26.436Z"},"PVS":{"symbol":"PVS","price":43800,"change":-2100,"changePercent":-4.58,"volume":6526700,"high":46800,"low":41500,"open":45900,"refPrice":45900,"ceiling":50400,"floor":41400,"currency":"VND","exchange":"HNX","lastUpdated":"2026-03-10T06:01:26.436Z"},"SHB":{"symbol":"SHB","price":14250,"change":-100,"changePercent":-0.7,"volume":42873500,"high":14750,"low":14200,"open":14550,"refPrice":14350,"ceiling":15350,"floor":13350,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:26.436Z"}}
+6:01:26 AM [express] GET /api/prices/vn-batch 200 in 228ms :: {"BSR":{"symbol":"BSR","price":37000,"change":900,"changePercent":2.49,"volume":11648300,"high":37900,"low":35100,"open":35450,"refPrice":36100,"ceiling":38600,"floor":33600,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:26.734Z"},"MCH":{"symbol":"MCH","price":137600,"change":5400,"changePercent":4.08,"volume":176000,"high":141400,"low":132300,"open":132300,"refPrice":132200,"ceiling":141400,"floor":123000,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:26.734Z"},"OIL":{"symbol":"OIL","price":21000,"change":-2000,"changePercent":-8.7,"volume":5308400,"high":22500,"low":19900,"open":20900,"refPrice":23000,"ceiling":26400,"floor":19600,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:26.734Z"},"QNS":{"symbol":"QNS","price":47800,"change":700,"changePercent":1.49,"volume":66900,"high":48000,"low":47100,"open":47200,"refPrice":47100,"ceiling":54100,"floor":40100,"currency":"VND","exchange":"HOSE","lastUpdated":"2026-03-10T06:01:26.734Z"}}
+6:02:12 AM [express] GET /api/market-overview 200 in 359ms :: {"vnIndex":{"price":1280,"change":10,"changePercent":0.79,"high":1280,"low":1280,"lastUpdated":"2026-03-10T06:02:12.067Z"},"hn30":{"price":225,"change":2,"changePercent":0.9,"high":225,"low":225,"lastUpdated":"2026-03-10T06:02:12.067Z"},"upcom":{"price":93.5,"change":0.3,"changePercent":0.32,"lastUpdated":"2026-03-10T06:02:12.067Z"},"gold":{"XAU":{"priceUsdOz":5178,"priceVndLuong":163480000,"change":-150000,"changePercent":-0.09,"usdToVnd":26187,"currency":"VND","lastUpdated":"2026-03-10T06:02:11.862Z"}},"oil":{"WTI":{"price":88.18,"change":-6.59,"changePercent":-6.95,"currency":"USD","lastUpdated":"2026-03-10T06:02:11.778Z"},"BRENT":{"price":92.26,"change":-6.7,"changePercent":-6.77,"currency":"USD","lastUpdated":"2026-03-10T06:02:11.778Z"}},"crypto":{"binancecoin":{"usd":644.01,"usd_market_cap":87843930795.76196,"usd_24h_vol":950349539.5859203,"usd_24h_change":2.3630664715122465},"bitcoin":{"usd":69933,"usd_market_cap":1399304987870.2158,"usd_24h_vol":51543681050.84319,"usd_24h_change":3.2148377517198963},"cardano":{"usd":0.259732,"usd_market_cap":9565098690.178284,"usd_24h_vol":487576097.9680649,"usd_24h_change":0.8622921894042358},"dogecoin":{"usd":0.091798,"usd_market_cap":14078620952.979172,"usd_24h_vol":1040338500.042161,"usd_24h_change":0.4078666905181316},"ethereum":{"usd":2042.82,"usd_market_cap":246661596242.48383,"usd_24h_vol":23157606260.053318,"usd_24h_change":1.77611605900105},"ripple":{"usd":1.38,"usd_market_cap":84771773990.4436,"usd_24h_vol":2268459417.994447,"usd_24h_change":2.1574620425793825},"solana":{"usd":86.38,"usd_market_cap":49307798996.045525,"usd_24h_vol":4208228888.506945,"usd_24h_change":2.580263264404738},"tron":{"usd":0.286048,"usd_market_cap":27101854038.83356,"usd_24h_vol":472975356.28146064,"usd_24h_change":-1.141607985653724}}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m6:02:35 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/PortfolioPage.tsx, /src/index.css[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m6:02:45 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/PortfolioPage.tsx, /src/index.css[22m [33m(x2)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m6:02:52 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/PortfolioPage.tsx, /src/index.css[22m [33m(x3)[39m

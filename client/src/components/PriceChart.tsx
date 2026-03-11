@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HistoricalPrice } from "@shared/schema";
+import { fetchJson } from "@/lib/queryClient";
 
 interface Props {
   type: string;
@@ -33,7 +34,7 @@ export default function PriceChart({ type, symbol, days = 30, color = "#1A73E8",
   const priceParam = currentPrice ? `&currentPrice=${currentPrice}` : "";
   const { data, isLoading } = useQuery<HistoricalPrice[]>({
     queryKey: [`/api/historical/${type}/${symbol}`, days, currentPrice],
-    queryFn: () => fetch(`/api/historical/${type}/${symbol}?days=${days}${priceParam}`).then(r => r.json()),
+    queryFn: () => fetchJson(`/api/historical/${type}/${symbol}?days=${days}${priceParam}`),
     refetchInterval: 120_000,
   });
 

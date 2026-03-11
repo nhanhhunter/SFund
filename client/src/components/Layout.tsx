@@ -18,8 +18,11 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/AuthProvider";
 
 type NavItemDef = { href: string; label: string; iconKey: string };
 
@@ -45,13 +48,31 @@ const DEFAULT_NAV_ITEMS: NavItemDef[] = [
 
 function useLocalStorage<T>(key: string, def: T) {
   const [v, setV] = useState<T>(() => {
-    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch { return def; }
+    try {
+      const s = localStorage.getItem(key);
+      return s ? JSON.parse(s) : def;
+    } catch {
+      return def;
+    }
   });
-  const set = (val: T) => { setV(val); try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+  const set = (val: T) => {
+    setV(val);
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch {}
+  };
+
   return [v, set] as const;
 }
 
-function SidebarSettingsModal({ items, hidden, onReorder, onToggleHidden, onClose }: {
+function SidebarSettingsModal({
+  items,
+  hidden,
+  onReorder,
+  onToggleHidden,
+  onClose,
+}: {
   items: NavItemDef[];
   hidden: string[];
   onReorder: (items: NavItemDef[]) => void;
@@ -64,6 +85,7 @@ function SidebarSettingsModal({ items, hidden, onReorder, onToggleHidden, onClos
     [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
     onReorder(next);
   };
+
   const moveDown = (idx: number) => {
     if (idx === items.length - 1) return;
     const next = [...items];
@@ -80,18 +102,31 @@ function SidebarSettingsModal({ items, hidden, onReorder, onToggleHidden, onClos
             <X className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Sắp xếp thứ tự và ẩn/hiện các mục trong menu</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Sắp xếp thứ tự và ẩn/hiện các mục trong menu
+        </p>
         <div className="space-y-1 mb-4">
           {items.map((item, idx) => {
             const Icon = ICON_MAP[item.iconKey];
             const isHidden = hidden.includes(item.href);
+
             return (
               <div
                 key={item.href}
-                className={cn("flex items-center gap-2 px-2 py-2 rounded-xl border transition-colors", isHidden ? "bg-muted/50 border-transparent opacity-60" : "bg-muted/30 border-transparent")}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-2 rounded-xl border transition-colors",
+                  isHidden ? "bg-muted/50 border-transparent opacity-60" : "bg-muted/30 border-transparent",
+                )}
               >
                 <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className={cn("flex-1 text-sm", isHidden && "line-through text-muted-foreground")}>{item.label}</span>
+                <span
+                  className={cn(
+                    "flex-1 text-sm",
+                    isHidden && "line-through text-muted-foreground",
+                  )}
+                >
+                  {item.label}
+                </span>
                 <div className="flex items-center gap-0.5">
                   <button
                     onClick={() => moveUp(idx)}
@@ -114,14 +149,20 @@ function SidebarSettingsModal({ items, hidden, onReorder, onToggleHidden, onClos
                     className="p-1 rounded hover:bg-muted"
                     data-testid={`btn-nav-toggle-${item.iconKey}`}
                   >
-                    {isHidden ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" /> : <Eye className="w-3.5 h-3.5" />}
+                    {isHidden ? (
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
             );
           })}
         </div>
-        <Button onClick={onClose} className="w-full">Đóng</Button>
+        <Button onClick={onClose} className="w-full">
+          Đóng
+        </Button>
       </div>
     </div>
   );
@@ -129,13 +170,20 @@ function SidebarSettingsModal({ items, hidden, onReorder, onToggleHidden, onClos
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { user, enabled, signInWithGoogle, signOutUser } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showSidebarSettings, setShowSidebarSettings] = useState(false);
-  const [navItems, setNavItems] = useLocalStorage<NavItemDef[]>("nav_items_order", DEFAULT_NAV_ITEMS);
-  const [hiddenNavItems, setHiddenNavItems] = useLocalStorage<string[]>("nav_items_hidden", []);
+  const [navItems, setNavItems] = useLocalStorage<NavItemDef[]>(
+    "nav_items_order",
+    DEFAULT_NAV_ITEMS,
+  );
+  const [hiddenNavItems, setHiddenNavItems] = useLocalStorage<string[]>(
+    "nav_items_hidden",
+    [],
+  );
 
-  const visibleItems = navItems.filter(item => !hiddenNavItems.includes(item.href));
+  const visibleItems = navItems.filter((item) => !hiddenNavItems.includes(item.href));
 
   const toggleDark = () => {
     setDarkMode((d) => {
@@ -148,8 +196,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const toggleHidden = (href: string) => {
     setHiddenNavItems(
       hiddenNavItems.includes(href)
-        ? hiddenNavItems.filter(h => h !== href)
-        : [...hiddenNavItems, href]
+        ? hiddenNavItems.filter((h) => h !== href)
+        : [...hiddenNavItems, href],
     );
   };
 
@@ -158,6 +206,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {visibleItems.map(({ href, label, iconKey }) => {
         const Icon = ICON_MAP[iconKey];
         const active = location === href;
+
         return (
           <Link
             key={href}
@@ -168,7 +217,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
               active
                 ? "bg-primary/10 text-primary"
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             )}
           >
             <Icon className="w-4 h-4 shrink-0" />
@@ -181,13 +230,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      {/* Sidebar desktop */}
       <aside className="hidden md:flex flex-col w-56 border-r border-border bg-sidebar shrink-0">
         <div className="flex items-center gap-2 px-4 py-5 border-b border-sidebar-border">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[#fa00af]">
             <TrendingUp className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">SFund</span>
+          <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
+            SFund
+          </span>
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
@@ -195,6 +245,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="px-2 py-4 border-t border-sidebar-border space-y-0.5">
+          {enabled ? (
+            user ? (
+              <div className="px-2 py-2 mb-2 rounded-xl bg-sidebar-accent/40">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                  {user.displayName || "Google user"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void signInWithGoogle()}
+                className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
+              >
+                <LogIn className="w-4 h-4" />
+                Đăng nhập Google
+              </Button>
+            )
+          ) : (
+            <div className="px-2 py-2 mb-2 rounded-xl bg-amber-500/10 text-xs text-muted-foreground">
+              Chưa cấu hình Firebase
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -215,9 +289,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {darkMode ? "Sáng" : "Tối"}
           </Button>
+          {user && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void signOutUser()}
+              className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
+            >
+              <LogOut className="w-4 h-4" />
+              Đăng xuất
+            </Button>
+          )}
         </div>
       </aside>
-      {/* Mobile header */}
+
       <div className="fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center px-4 md:hidden z-50">
         <div className="flex items-center gap-2 flex-1">
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
@@ -229,7 +314,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Menu className="w-5 h-5" />
         </Button>
       </div>
-      {/* Mobile sidebar */}
+
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
@@ -243,11 +328,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
               <NavItems onClick={() => setMobileOpen(false)} />
             </nav>
-            <div className="px-2 py-4 border-t border-sidebar-border">
+            <div className="px-2 py-4 border-t border-sidebar-border space-y-0.5">
+              {enabled && !user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void signInWithGoogle()}
+                  className="w-full justify-start gap-2 text-sidebar-foreground"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Đăng nhập Google
+                </Button>
+              )}
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void signOutUser()}
+                  className="w-full justify-start gap-2 text-sidebar-foreground"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Đăng xuất
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setMobileOpen(false); setShowSidebarSettings(true); }}
+                onClick={() => {
+                  setMobileOpen(false);
+                  setShowSidebarSettings(true);
+                }}
                 className="w-full justify-start gap-2 text-sidebar-foreground"
               >
                 <Settings className="w-4 h-4" />
@@ -257,10 +367,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </aside>
         </div>
       )}
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
-        {children}
-      </main>
+
+      <main className="flex-1 overflow-y-auto md:pt-0 pt-14">{children}</main>
       {showSidebarSettings && (
         <SidebarSettingsModal
           items={navItems}

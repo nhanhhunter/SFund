@@ -1,19 +1,33 @@
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { insertPortfolioItemSchema, CRYPTO_LIST, type InsertPortfolioItem, type PortfolioItem } from "@shared/schema";
+import { Search, X } from "lucide-react";
+import {
+  CRYPTO_LIST,
+  insertPortfolioItemSchema,
+  type InsertPortfolioItem,
+  type PortfolioItem,
+} from "@shared/schema";
+import { queryClient, fetchJson } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { addPortfolioItem, updatePortfolioItem } from "@/lib/user-data";
+import { useAuth } from "@/components/AuthProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
-import { useState, useRef, useEffect } from "react";
-import { Search, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const formSchema = insertPortfolioItemSchema.extend({
   quantity: z.coerce.number().positive("Phải lớn hơn 0"),
@@ -45,9 +59,11 @@ function StockSearchInput({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const { data: results, isLoading } = useQuery<Array<{ symbol: string; name: string; exchange: string }>>({
+  const { data: results, isLoading } = useQuery<
+    Array<{ symbol: string; name: string; exchange: string }>
+  >({
     queryKey: ["/api/stocks/search", query],
-    queryFn: () => fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`).then(r => r.json()),
+    queryFn: () => fetchJson(`/api/stocks/search?q=${encodeURIComponent(query)}`),
     enabled: query.length >= 1,
     staleTime: 30_000,
   });
@@ -56,6 +72,7 @@ function StockSearchInput({
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -81,7 +98,11 @@ function StockSearchInput({
         <Input
           data-testid="input-stock-symbol"
           value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true); onChange(e.target.value.toUpperCase()); }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            onChange(e.target.value.toUpperCase());
+          }}
           onFocus={() => setOpen(true)}
           placeholder="Tìm mã (VD: VNM, FPT...)"
           className="pl-8 pr-8 uppercase"
@@ -102,7 +123,7 @@ function StockSearchInput({
           {!isLoading && (!results || results.length === 0) && (
             <p className="text-xs text-muted-foreground px-3 py-2">Không tìm thấy cổ phiếu</p>
           )}
-          {results?.map(r => (
+          {results?.map((r) => (
             <button
               key={r.symbol}
               type="button"
@@ -113,7 +134,12 @@ function StockSearchInput({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-foreground">{r.symbol}</span>
                 {r.exchange && (
-                  <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", EX_BADGE[r.exchange] || "bg-muted text-muted-foreground")}>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                      EX_BADGE[r.exchange] || "bg-muted text-muted-foreground",
+                    )}
+                  >
                     {r.exchange}
                   </span>
                 )}
@@ -131,6 +157,7 @@ function StockSearchInput({
 
 export default function PortfolioDialog({ open, onOpenChange, editItem }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const isEdit = !!editItem;
 
   const form = useForm<InsertPortfolioItem>({
@@ -145,39 +172,57 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
     },
   });
 
+  useEffect(() => {
+    if (editItem) {
+      form.reset(editItem);
+      return;
+    }
+
+    form.reset({
+      symbol: "",
+      name: "",
+      type: "stock",
+      quantity: 0,
+      avgBuyPrice: 0,
+      notes: "",
+    });
+  }, [editItem, form, open]);
+
   const assetType = form.watch("type");
 
   const mutation = useMutation({
     mutationFn: async (data: InsertPortfolioItem) => {
-      if (isEdit) {
-        const res = await apiRequest("PUT", `/api/portfolio/${editItem.id}`, data);
-        return res.json();
-      } else {
-        const res = await apiRequest("POST", "/api/portfolio", data);
-        return res.json();
+      if (!user) throw new Error("Bạn cần đăng nhập để lưu danh mục.");
+      if (isEdit && editItem) {
+        return updatePortfolioItem(user.uid, editItem.id, data);
       }
+
+      return addPortfolioItem(user.uid, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: ["portfolio", user.uid] });
+      }
       toast({ title: isEdit ? "Đã cập nhật" : "Đã thêm vào danh mục" });
       onOpenChange(false);
       form.reset();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
     },
   });
 
   const onTypeChange = (value: string) => {
-    form.setValue("type", value as any);
+    form.setValue("type", value as InsertPortfolioItem["type"]);
     form.setValue("symbol", "");
     form.setValue("name", "");
   };
 
   const onSymbolChange = (value: string) => {
     form.setValue("symbol", value);
+
     if (assetType === "crypto") {
-      const crypto = CRYPTO_LIST.find(c => c.symbol === value);
+      const crypto = CRYPTO_LIST.find((c) => c.symbol === value);
       if (crypto) form.setValue("name", crypto.name);
     } else if (assetType === "gold") {
       form.setValue("name", "Vàng 24K");
@@ -190,7 +235,9 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Chỉnh sửa tài sản" : "Thêm tài sản vào danh mục"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Chỉnh sửa tài sản" : "Thêm tài sản vào danh mục"}
+          </DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
@@ -228,9 +275,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                     {assetType === "stock" ? (
                       <StockSearchInput
                         value={field.value}
-                        onChange={(v) => {
-                          field.onChange(v);
-                        }}
+                        onChange={field.onChange}
                         onNameChange={(name) => {
                           if (name) form.setValue("name", name);
                         }}
@@ -243,8 +288,10 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {CRYPTO_LIST.map(c => (
-                            <SelectItem key={c.symbol} value={c.symbol}>{c.ticker} - {c.name}</SelectItem>
+                          {CRYPTO_LIST.map((c) => (
+                            <SelectItem key={c.symbol} value={c.symbol}>
+                              {c.ticker} - {c.name}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -337,9 +384,19 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
             />
 
             <div className="flex gap-2 justify-end pt-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button type="submit" data-testid="button-submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Đang lưu..." : isEdit ? "Cập nhật" : "Thêm vào danh mục"}
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                data-testid="button-submit"
+                disabled={mutation.isPending || !user}
+              >
+                {mutation.isPending
+                  ? "Đang lưu..."
+                  : isEdit
+                    ? "Cập nhật"
+                    : "Thêm vào danh mục"}
               </Button>
             </div>
           </form>

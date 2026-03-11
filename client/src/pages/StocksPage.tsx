@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, fetchJson } from "@/lib/queryClient";
 import { RefreshCw, Plus, X, Search, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +58,7 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
 function useStockSearch(query: string) {
   return useQuery<Array<{ symbol: string; name: string; exchange: string }>>({
     queryKey: ["/api/stocks/search", query],
-    queryFn: () => fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`).then(r => r.json()),
+    queryFn: () => fetchJson(`/api/stocks/search?q=${encodeURIComponent(query)}`),
     enabled: query.length >= 1,
     staleTime: 30_000,
   });
@@ -442,7 +442,7 @@ export default function StocksPage() {
   const pinnedSymbols = pinnedStocks.map(s => s.symbol);
   const { data: stockPrices } = useQuery<any>({
     queryKey: ["/api/prices/vn-batch", pinnedSymbols.join(",")],
-    queryFn: () => fetch(`/api/prices/vn-batch?symbols=${pinnedSymbols.join(",")}`).then(r => r.json()),
+    queryFn: () => fetchJson(`/api/prices/vn-batch?symbols=${pinnedSymbols.join(",")}`),
     enabled: pinnedSymbols.length > 0,
     refetchInterval: 60_000,
   });
