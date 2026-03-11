@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Star,
@@ -9,6 +9,7 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { VN_STOCK_LIST, CRYPTO_LIST, type WatchlistItem, type InsertWatchlistItem } from "@shared/schema";
 import { queryClient, fetchJson } from "@/lib/queryClient";
@@ -23,8 +24,126 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 type Period = "1" | "7" | "30";
+
+const EX_BADGE: Record<string, string> = {
+  HOSE: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  HNX: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  UpCOM: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+};
+
+function StockSearchInput({
+  value,
+  onChange,
+  onNameChange,
+}: {
+  value: string;
+  onChange: (symbol: string) => void;
+  onNameChange: (name: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const { data: results, isLoading } = useQuery<Array<{ symbol: string; name: string; exchange: string }>>({
+    queryKey: ["/api/stocks/search", query],
+    queryFn: () => fetchJson(`/api/stocks/search?q=${encodeURIComponent(query)}`),
+    enabled: query.length >= 1,
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (symbol: string, name: string) => {
+    setQuery(symbol);
+    onChange(symbol);
+    onNameChange(name.includes(" - ") ? name.split(" - ")[0] : name);
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setQuery("");
+    onChange("");
+    onNameChange("");
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          data-testid="input-watchlist-stock-symbol"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            onChange(e.target.value.toUpperCase());
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Tìm mã (VD: VNM, FPT...)"
+          className="pl-8 pr-8 uppercase"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2"
+          >
+            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+          </button>
+        )}
+      </div>
+      {open && query.length >= 1 && (
+        <div className="absolute left-0 top-10 z-50 bg-card border border-card-border rounded-xl shadow-lg w-full py-1 max-h-56 overflow-y-auto">
+          {isLoading && <p className="text-xs text-muted-foreground px-3 py-2">Đang tìm...</p>}
+          {!isLoading && (!results || results.length === 0) && (
+            <p className="text-xs text-muted-foreground px-3 py-2">Không tìm thấy cổ phiếu</p>
+          )}
+          {results?.map((r) => (
+            <button
+              key={r.symbol}
+              type="button"
+              data-testid={`option-watchlist-stock-${r.symbol}`}
+              className="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+              onClick={() => handleSelect(r.symbol, r.name)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-foreground">{r.symbol}</span>
+                {r.exchange && (
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                      EX_BADGE[r.exchange] || "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {r.exchange}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground truncate">
+                {r.name.includes(" - ") ? r.name.split(" - ").slice(1).join(" - ") : r.name}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function DetailDrawer({
   item,
@@ -173,6 +292,7 @@ export default function WatchlistPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [addType, setAddType] = useState("stock");
   const [addSymbol, setAddSymbol] = useState("");
+  const [addName, setAddName] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: watchlist, isLoading } = useQuery<WatchlistItem[]>({
@@ -225,6 +345,7 @@ export default function WatchlistPage() {
       toast({ title: "Đã thêm vào danh sách theo dõi" });
       setAddOpen(false);
       setAddSymbol("");
+      setAddName("");
     },
     onError: (err: Error) => {
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
@@ -273,7 +394,7 @@ export default function WatchlistPage() {
 
     let name = addSymbol;
     if (addType === "stock") {
-      name = VN_STOCK_LIST.find((s) => s.symbol === addSymbol)?.name || addSymbol;
+      name = addName || VN_STOCK_LIST.find((s) => s.symbol === addSymbol)?.name || addSymbol;
     } else if (addType === "crypto") {
       name = CRYPTO_LIST.find((c) => c.symbol === addSymbol)?.name || addSymbol;
     } else if (addType === "gold") {
@@ -312,7 +433,7 @@ export default function WatchlistPage() {
         </div>
         <Button onClick={() => setAddOpen(true)} data-testid="button-add-watchlist" className="gap-2">
           <Plus className="w-4 h-4" />
-          Thêm theo dõi
+          Thêm tài sản
         </Button>
       </div>
 
@@ -429,6 +550,7 @@ export default function WatchlistPage() {
                 onValueChange={(value) => {
                   setAddType(value);
                   setAddSymbol("");
+                  setAddName("");
                 }}
               >
                 <SelectTrigger data-testid="select-watchlist-type">
@@ -445,18 +567,11 @@ export default function WatchlistPage() {
             <div>
               <Label className="text-sm mb-2 block">Tài sản</Label>
               {addType === "stock" ? (
-                <Select value={addSymbol} onValueChange={setAddSymbol}>
-                  <SelectTrigger data-testid="select-watchlist-symbol">
-                    <SelectValue placeholder="Chọn cổ phiếu" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-48">
-                    {VN_STOCK_LIST.map((s) => (
-                      <SelectItem key={s.symbol} value={s.symbol}>
-                        {s.symbol} - {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StockSearchInput
+                  value={addSymbol}
+                  onChange={setAddSymbol}
+                  onNameChange={setAddName}
+                />
               ) : addType === "crypto" ? (
                 <Select value={addSymbol} onValueChange={setAddSymbol}>
                   <SelectTrigger data-testid="select-watchlist-symbol">

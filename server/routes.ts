@@ -250,11 +250,49 @@ async function fetchVietcombankRate(): Promise<number> {
   return 26315;
 }
 
+async function fetchVietnamGoldPrices() {
+  const response = await fetchJson("https://www.vang.today/api/prices");
+  const rows = Array.isArray(response?.data) ? response.data : [];
+
+  const getItem = (typeCode: string) =>
+    rows.find((item: any) => item?.type_code === typeCode);
+
+  const sjc = getItem("SJL1L10");
+  const nhan = getItem("SJ9999");
+
+  if (!sjc || !nhan) {
+    throw new Error("Unable to parse Vietnam gold prices from vang.today");
+  }
+
+  const toIsoTime = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return new Date(value * 1000).toISOString();
+    }
+    return new Date().toISOString();
+  };
+
+  return {
+    SJC: {
+      buy: Number(sjc.buy) || 0,
+      sell: Number(sjc.sell) || 0,
+      source: "vang.today",
+      lastUpdated: toIsoTime(sjc.update_time ?? response?.current_time),
+    },
+    NHAN9999: {
+      buy: Number(nhan.buy) || 0,
+      sell: Number(nhan.sell) || 0,
+      source: "vang.today",
+      lastUpdated: toIsoTime(nhan.update_time ?? response?.current_time),
+    },
+  };
+}
+
 async function fetchGoldPrice() {
   try {
-    const [goldData, usdToVnd] = await Promise.all([
+    const [goldData, usdToVnd, vnGold] = await Promise.all([
       fetchJson("https://api.gold-api.com/price/XAU"),
       fetchVietcombankRate(),
+      fetchVietnamGoldPrices(),
     ]);
     const goldUsdPerOz = goldData?.price as number;
     if (!goldUsdPerOz) throw new Error("No gold price");
@@ -274,6 +312,7 @@ async function fetchGoldPrice() {
         currency: "VND",
         lastUpdated: new Date().toISOString(),
       },
+      ...vnGold,
     };
   } catch {
     return {
@@ -285,6 +324,18 @@ async function fetchGoldPrice() {
         usdToVnd: 26315,
         usdToVndSource: "Vietcombank",
         currency: "VND",
+        lastUpdated: new Date().toISOString(),
+      },
+      SJC: {
+        buy: 181100000,
+        sell: 184100000,
+        source: "fallback",
+        lastUpdated: new Date().toISOString(),
+      },
+      NHAN9999: {
+        buy: 180800000,
+        sell: 183800000,
+        source: "fallback",
         lastUpdated: new Date().toISOString(),
       },
     };
@@ -336,6 +387,22 @@ async function fetchOilPrice() {
 // Fetch VN market indices via Yahoo Finance compatible symbols
 async function fetchVNIndices() {
   try {
+    const indexCandidates: Record<string, string[]> = {
+      VNINDEX: ["VNINDEX"],
+      HNXINDEX: ["HNXINDEX"],
+      UPCOMINDEX: ["UPCOMINDEX", "UPINDEX", "UPCOM"],
+      VN30: ["VN30"],
+      HNX30: ["HNX30"],
+      VN100: ["VN100"],
+    };
+
+    const requestedSymbols = Array.from(new Set(Object.values(indexCandidates).flat()));
+
+    let vpsIndexData: Record<string, any> = {};
+    try {
+      vpsIndexData = await fetchVNStockPriceBatch(requestedSymbols);
+    } catch {}
+
     const [vnData, hnxData] = await Promise.all([
       fetchJson("https://stooq.com/q/l/?s=^vnindex&f=sd2t2ohlcv&h&e=json").catch(() => null),
       fetchJson("https://stooq.com/q/l/?s=^hnxindex&f=sd2t2ohlcv&h&e=json").catch(() => null),
@@ -352,15 +419,6 @@ async function fetchVNIndices() {
     const hnxOpen = hnxSym?.open ?? 223;
     const hnxChange = hnxPrice - hnxOpen;
 
-    // VN30 ~10% above VNINDEX, HNX30 ~360, VN100 ~1480
-    const vn30Price = Math.round(vnPrice * 1.12 * 100) / 100;
-    const vn30Change = Math.round(vnChange * 1.1 * 100) / 100;
-    const hxn30Price = 345 + (hnxPrice - 220) * 0.6;
-    const hnx30Change = Math.round(hnxChange * 0.8 * 100) / 100;
-    const vn100Price = Math.round(vnPrice * 1.17 * 100) / 100;
-    const vn100Change = Math.round(vnChange * 1.05 * 100) / 100;
-    const upcomPrice = 93.5 + (vnPrice - 1280) * 0.03;
-
     const idx = (price: number, change: number, high?: number, low?: number) => ({
       price: Math.round(price * 100) / 100,
       change: Math.round(change * 100) / 100,
@@ -370,13 +428,26 @@ async function fetchVNIndices() {
       lastUpdated: new Date().toISOString(),
     });
 
+    const fromVps = (key: keyof typeof indexCandidates) => {
+      const match = indexCandidates[key]
+        .map((symbol) => vpsIndexData[symbol])
+        .find(Boolean);
+      if (!match) return null;
+      return idx(match.price, match.change, match.high, match.low);
+    };
+
+    const upcomFallback = idx(93.5 + (vnPrice - 1280) * 0.03, vnChange * 0.02);
+    const vn30Fallback = idx(Math.round(vnPrice * 1.12 * 100) / 100, Math.round(vnChange * 1.1 * 100) / 100);
+    const hnx30Fallback = idx(345 + (hnxPrice - 220) * 0.6, Math.round(hnxChange * 0.8 * 100) / 100);
+    const vn100Fallback = idx(Math.round(vnPrice * 1.17 * 100) / 100, Math.round(vnChange * 1.05 * 100) / 100);
+
     return {
-      VNINDEX: idx(vnPrice, vnChange, vnSym?.high, vnSym?.low),
-      HNXINDEX: idx(hnxPrice, hnxChange, hnxSym?.high, hnxSym?.low),
-      UPCOMINDEX: idx(upcomPrice, vnChange * 0.02, undefined, undefined),
-      VN30: idx(vn30Price, vn30Change),
-      HNX30: idx(hxn30Price, hnx30Change),
-      VN100: idx(vn100Price, vn100Change),
+      VNINDEX: fromVps("VNINDEX") || idx(vnPrice, vnChange, vnSym?.high, vnSym?.low),
+      HNXINDEX: fromVps("HNXINDEX") || idx(hnxPrice, hnxChange, hnxSym?.high, hnxSym?.low),
+      UPCOMINDEX: fromVps("UPCOMINDEX") || upcomFallback,
+      VN30: fromVps("VN30") || vn30Fallback,
+      HNX30: fromVps("HNX30") || hnx30Fallback,
+      VN100: fromVps("VN100") || vn100Fallback,
     };
   } catch {
     return {
