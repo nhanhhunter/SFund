@@ -5,6 +5,14 @@ import AuthGate from "@/components/AuthGate";
 import { useAuth } from "@/components/AuthProvider";
 import { useUserPreferences } from "@/components/UserPreferencesProvider";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,6 +37,8 @@ const FONT_OPTIONS = [
   { value: "display", label: "Space Grotesk" },
 ] as const;
 
+const AVATAR_OPTIONS = ["👨", "👩", "👨‍💼", "👩‍💼", "🧑"];
+
 export default function SettingsPage() {
   const { user, loading, updateDisplayName, changePassword, deleteAccount } = useAuth();
   const { preferences, updatePreferences } = useUserPreferences();
@@ -37,6 +47,7 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -47,13 +58,6 @@ export default function SettingsPage() {
   useEffect(() => {
     setDisplayName(preferences.displayName);
   }, [preferences.displayName]);
-
-  useEffect(() => {
-    const support = new URLSearchParams(window.location.search).get("support");
-    if (support === "thanks") {
-      toast({ title: "Cảm ơn bạn đã ủng hộ SFund" });
-    }
-  }, [toast]);
 
   if (loading) {
     return <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-muted-foreground">Đang tải cài đặt...</div>;
@@ -141,6 +145,8 @@ export default function SettingsPage() {
       });
     } finally {
       setDeletingAccount(false);
+      setDeleteDialogOpen(false);
+      setDeleteConfirm("");
     }
   };
 
@@ -223,7 +229,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label>Icon đại diện</Label>
               <div className="flex flex-wrap gap-2">
-                {["🧭", "📈", "💼", "🚀", "🛡️"].map((avatar) => (
+                {AVATAR_OPTIONS.map((avatar) => (
                   <Button
                     key={avatar}
                     type="button"
@@ -286,6 +292,52 @@ export default function SettingsPage() {
               );
             })}
           </div>
+
+          <div className="mt-5 border-t border-card-border pt-5">
+            <div className="mb-4 flex items-center gap-3">
+              <Shield className="h-5 w-5 text-primary" />
+              <div>
+                <h2 className="font-semibold text-foreground">Chính sách và điều khoản</h2>
+                <p className="text-sm text-muted-foreground">Các tài liệu pháp lý dành cho người dùng ứng dụng.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="outline">
+                <Link href="/privacy-policy">Chính sách bảo mật</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/terms-of-use">Điều khoản sử dụng</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-5 border-t border-card-border pt-5">
+            <div className="mb-4 flex items-center gap-3">
+              <Heart className="h-5 w-5 text-rose-500" />
+              <div>
+                <h2 className="font-semibold text-foreground">Thông tin chung về SFund</h2>
+              </div>
+            </div>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                SFund mang đến trải nghiệm cá nhân hóa cho việc quản lý danh mục đầu tư và theo dõi thông tin thị trường.
+              </p>
+              <p>
+                Liên hệ:{" "}
+                <a
+                  href="https://www.nhanh.dev/contact/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  nhanh.dev/contact
+                </a>
+              </p>
+              <p className="flex items-center gap-2 text-foreground">
+                Built with <Heart className="h-4 w-4 fill-rose-500 text-rose-500" /> @NHANH.DEV
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="rounded-2xl border border-card-border bg-card p-5">
@@ -336,8 +388,8 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground">
-                  Tài khoản này đang dùng nhà cung cấp đăng nhập khác ngoài email/password. Nếu bạn đăng nhập bằng
-                  Google, hãy quản lý mật khẩu trực tiếp trong tài khoản Google của mình.
+                  Tài khoản này đang dùng tùy chọn đăng nhập khác. Nếu bạn đăng nhập bằng Google, hãy quản lý mật khẩu
+                  trực tiếp trong tài khoản Google của mình.
                 </div>
               )}
             </div>
@@ -348,26 +400,11 @@ export default function SettingsPage() {
                 <p className="font-medium text-foreground">Xóa tài khoản</p>
               </div>
               <p className="mb-3 text-sm text-muted-foreground">
-                Hành động này sẽ xóa danh mục, watchlist, cài đặt và yêu cầu xóa tài khoản đăng nhập hiện tại.
+                Bạn có toàn quyền đối với dữ liệu của mình. Hành động này sẽ xóa toàn bộ dữ liệu của bạn.
               </p>
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="delete-confirm">Gõ `delete` để xác nhận</Label>
-                  <Input
-                    id="delete-confirm"
-                    value={deleteConfirm}
-                    onChange={(event) => setDeleteConfirm(event.target.value)}
-                    placeholder="delete"
-                  />
-                </div>
-                <Button
-                  variant="destructive"
-                  onClick={() => void handleDeleteAccount()}
-                  disabled={deletingAccount || deleteConfirm.trim().toLowerCase() !== "delete"}
-                >
-                  {deletingAccount ? "Đang xóa..." : "Xóa toàn bộ dữ liệu và tài khoản"}
-                </Button>
-              </div>
+              <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+                Mở xác nhận xóa tài khoản
+              </Button>
             </div>
 
             <div className="rounded-xl border border-card-border p-4">
@@ -376,14 +413,14 @@ export default function SettingsPage() {
                 <p className="font-medium text-foreground">Donate</p>
               </div>
               <p className="mb-4 text-sm text-muted-foreground">
-                Nếu SFund hữu ích với bạn, sự ủng hộ của bạn sẽ giúp duy trì tên miền, hosting và các API đang dùng cho ứng dụng.
+                Nếu SFund hữu ích với bạn, hãy ủng hộ chúng tôi và giúp duy trì tên miền, hosting và các API dùng cho ứng dụng.
               </p>
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <p className="font-medium text-foreground">Momo</p>
-                      <p className="text-sm text-muted-foreground">Quét mã hoặc chuyển khoản trực tiếp</p>
+                      <p className="text-sm text-muted-foreground">Quét mã hoặc chuyển khoản</p>
                     </div>
                     <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
                       Đang hỗ trợ
@@ -400,7 +437,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted-foreground">Số điện thoại Momo</p>
                     <p className="text-lg font-semibold tracking-wide text-foreground">0906.953.436</p>
                     <p className="text-sm text-muted-foreground">
-                      Cảm ơn bạn đã hỗ trợ chi phí tên miền, hosting và API để SFund tiếp tục vận hành ổn định.
+                      Cảm ơn bạn đã sử dụng ứng dụng và hỗ trợ chi phí tên miền, hosting, API cho SFund.
                     </p>
                   </div>
                 </div>
@@ -416,7 +453,7 @@ export default function SettingsPage() {
                     </span>
                   </div>
                   <div className="rounded-xl border border-card-border bg-background/70 p-4 text-sm text-muted-foreground">
-                    Tùy chọn Stripe đã được chuẩn bị trong hệ thống nhưng hiện chưa mở để sử dụng.
+                    Chưa hỗ trợ.
                   </div>
                 </div>
               </div>
@@ -425,54 +462,45 @@ export default function SettingsPage() {
         </section>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-card-border bg-card p-5">
-          <div className="mb-4 flex items-center gap-3">
-            <Shield className="h-5 w-5 text-primary" />
-            <div>
-              <h2 className="font-semibold text-foreground">Chính sách và điều khoản</h2>
-              <p className="text-sm text-muted-foreground">Các tài liệu pháp lý dành cho người dùng ứng dụng.</p>
-            </div>
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleteConfirm("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa tài khoản</DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ xóa toàn bộ dữ liệu cá nhân của bạn. Gõ `delete` để tiếp tục.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="delete-confirm">Nhập `delete`</Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirm}
+              onChange={(event) => setDeleteConfirm(event.target.value)}
+              placeholder="delete"
+            />
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline">
-              <Link href="/privacy-policy">Chính sách bảo mật</Link>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Hủy
             </Button>
-            <Button asChild variant="outline">
-              <Link href="/terms-of-use">Điều khoản sử dụng</Link>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDeleteAccount()}
+              disabled={deletingAccount || deleteConfirm.trim().toLowerCase() !== "delete"}
+            >
+              {deletingAccount ? "Đang xóa..." : "Xóa tài khoản"}
             </Button>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-card-border bg-card p-5">
-          <div className="mb-4 flex items-center gap-3">
-            <Heart className="h-5 w-5 text-rose-500" />
-            <div>
-              <h2 className="font-semibold text-foreground">About</h2>
-              <p className="text-sm text-muted-foreground">Thông tin chung về ứng dụng SFund.</p>
-            </div>
-          </div>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              SFund hỗ trợ theo dõi thị trường, quản lý danh mục và cá nhân hóa không gian làm việc cho từng tài khoản.
-            </p>
-            <p>
-              Liên hệ:{" "}
-              <a
-                href="https://www.nhanh.dev/contact/"
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                nhanh.dev/contact
-              </a>
-            </p>
-            <p className="flex items-center gap-2 text-foreground">
-              Built with <Heart className="h-4 w-4 fill-rose-500 text-rose-500" /> @NHANH.DEV
-            </p>
-          </div>
-        </section>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
