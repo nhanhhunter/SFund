@@ -82,6 +82,7 @@ async function deleteCollectionDocuments(pathCollection: ReturnType<typeof colle
 
 function normalizePortfolioItem(data: Partial<PortfolioItem>, fallbackId: string): PortfolioItem {
   const addedAt = data.addedAt || new Date().toISOString();
+  const updatedAt = data.updatedAt || addedAt;
   const currency = data.currency || defaultPortfolioCurrency(data.type || "stock");
   const purchaseLots = Array.isArray(data.purchaseLots) && data.purchaseLots.length > 0
     ? (data.purchaseLots as PortfolioPurchase[])
@@ -102,6 +103,7 @@ function normalizePortfolioItem(data: Partial<PortfolioItem>, fallbackId: string
     ...data,
     id: data.id || fallbackId,
     addedAt,
+    updatedAt,
     currency,
     purchaseLots,
     dividends,
@@ -123,10 +125,12 @@ export async function addPortfolioItem(
   item: InsertPortfolioItem,
 ): Promise<PortfolioItem> {
   const docRef = doc(portfolioCollection(userId));
+  const now = new Date().toISOString();
   const created = normalizePortfolioItem({
     ...item,
     id: docRef.id,
-    addedAt: new Date().toISOString(),
+    addedAt: now,
+    updatedAt: now,
   }, docRef.id);
 
   await setDoc(docRef, created);
@@ -137,11 +141,14 @@ export async function updatePortfolioItem(
   userId: string,
   id: string,
   item: InsertPortfolioItem,
+  addedAt?: string,
 ): Promise<PortfolioItem> {
+  const now = new Date().toISOString();
   const updated = normalizePortfolioItem({
     ...item,
     id,
-    addedAt: new Date().toISOString(),
+    addedAt,
+    updatedAt: now,
   }, id);
 
   await setDoc(doc(portfolioCollection(userId), id), updated, { merge: true });

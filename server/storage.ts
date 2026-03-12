@@ -29,7 +29,7 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    const items: InsertPortfolioItem[] = [
+    const items = [
       { symbol: "VNM", name: "Vinamilk", type: "stock", currency: "VND", quantity: 500, avgBuyPrice: 78500, notes: "Cổ phiếu tiêu dùng ổn định" },
       { symbol: "FPT", name: "FPT Corp", type: "stock", currency: "VND", quantity: 300, avgBuyPrice: 135000, notes: "Tăng trưởng công nghệ" },
       { symbol: "VCB", name: "Vietcombank", type: "stock", currency: "VND", quantity: 200, avgBuyPrice: 95000, notes: "Ngân hàng hàng đầu" },
@@ -38,7 +38,9 @@ export class MemStorage implements IStorage {
       { symbol: "ethereum", name: "Ethereum", type: "crypto", currency: "USD", quantity: 2, avgBuyPrice: 3200, notes: "Smart contract platform" },
       { symbol: "XAU", name: "Vàng 24K", type: "gold", currency: "VND", quantity: 5, avgBuyPrice: 7800000, notes: "Lượng vàng (chỉ)" },
       { symbol: "WTI", name: "Dầu WTI", type: "oil", currency: "USD", quantity: 10, avgBuyPrice: 78, notes: "Hợp đồng dầu thô" },
-    ].map((item) => ({
+    ] satisfies Omit<InsertPortfolioItem, "purchaseLots" | "dividends">[];
+
+    const seededItems: InsertPortfolioItem[] = items.map((item) => ({
       ...item,
       purchaseLots: [
         {
@@ -50,13 +52,15 @@ export class MemStorage implements IStorage {
       dividends: [],
     }));
 
-    for (const item of items) {
+    for (const item of seededItems) {
       const id = randomUUID();
+      const now = new Date().toISOString();
       const fullItem: PortfolioItem = {
         ...item,
         currency: item.currency || defaultPortfolioCurrency(item.type),
         id,
-        addedAt: new Date().toISOString(),
+        addedAt: now,
+        updatedAt: now,
       };
       this.portfolio.set(id, fullItem);
     }
@@ -84,11 +88,13 @@ export class MemStorage implements IStorage {
 
   async addPortfolioItem(item: InsertPortfolioItem): Promise<PortfolioItem> {
     const id = randomUUID();
+    const now = new Date().toISOString();
     const fullItem: PortfolioItem = {
       ...item,
       currency: item.currency || defaultPortfolioCurrency(item.type),
       id,
-      addedAt: new Date().toISOString(),
+      addedAt: now,
+      updatedAt: now,
     };
     this.portfolio.set(id, fullItem);
     return fullItem;
@@ -97,7 +103,7 @@ export class MemStorage implements IStorage {
   async updatePortfolioItem(id: string, updates: Partial<InsertPortfolioItem>): Promise<PortfolioItem | undefined> {
     const existing = this.portfolio.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...updates };
+    const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
     this.portfolio.set(id, updated);
     return updated;
   }

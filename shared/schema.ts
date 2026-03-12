@@ -35,9 +35,10 @@ export const portfolioItemSchema = z.object({
   avgBuyPrice: z.number(),
   notes: z.string().optional(),
   addedAt: z.string(),
+  updatedAt: z.string(),
 });
 
-export const insertPortfolioItemSchema = portfolioItemSchema.omit({ id: true, addedAt: true });
+export const insertPortfolioItemSchema = portfolioItemSchema.omit({ id: true, addedAt: true, updatedAt: true });
 
 export type PortfolioItem = z.infer<typeof portfolioItemSchema>;
 export type InsertPortfolioItem = z.infer<typeof insertPortfolioItemSchema>;

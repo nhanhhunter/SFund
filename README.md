@@ -3,6 +3,8 @@
 ## Overview
 SFund is a Vietnamese personal finance dashboard for tracking stocks, portfolio holdings, watchlists, gold, oil, and crypto. The application uses a React frontend, an Express API, Firebase Authentication, and Firestore.
 
+Stripe has been removed from the project. Support/donation guidance in the app now uses Momo only.
+
 ## Stack
 - Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query, Recharts
 - Backend: Express, TypeScript
@@ -35,10 +37,6 @@ Client:
 Server:
 - `CORS_ORIGIN`
 - `VNSTOCK_SOURCE=KBS`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_APP_URL`
-- `STRIPE_DONATE_SUCCESS_URL`
-- `STRIPE_DONATE_CANCEL_URL`
 
 Optional:
 - `VNSTOCK_API_KEY`
@@ -76,6 +74,7 @@ Normalized fields:
 - `avgBuyPrice`
 - `notes`
 - `addedAt`
+- `updatedAt`
 
 Example:
 
@@ -107,7 +106,8 @@ Example:
   "quantity": 150,
   "avgBuyPrice": 81000,
   "notes": "Tích lũy dài hạn",
-  "addedAt": "2026-03-12T02:15:00.000Z"
+  "addedAt": "2026-03-12T02:15:00.000Z",
+  "updatedAt": "2026-03-16T08:45:00.000Z"
 }
 ```
 
@@ -115,7 +115,15 @@ Notes:
 
 - `quantity` and `avgBuyPrice` are derived from `purchaseLots` in the client data layer.
 - Existing older documents without `currency`, `purchaseLots`, or `dividends` are normalized on read for backward compatibility.
+- `updatedAt` is refreshed each time a portfolio item is edited.
 - Stock ROI includes both price change and received dividends.
+
+Portfolio calculations:
+
+```text
+Lãi/Lỗ = (Current Value - Cost Basis) / Cost Basis
+ROI = (Current Value - Cost Basis + Dividends Received) / Cost Basis
+```
 
 ROI formula:
 

@@ -1,10 +1,9 @@
-import type { Express, Request } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPortfolioItemSchema, insertWatchlistItemSchema } from "@shared/schema";
 import https from "https";
 import http from "http";
-import Stripe from "stripe";
 import { fetchVnstockHistory, fetchVnstockListing, fetchVnstockPriceBoard } from "./vnstock";
 
 function fetchJson(url: string, headers: Record<string, string> = {}): Promise<any> {
@@ -66,15 +65,6 @@ const FX_TTL = 86_400_000;
 const LISTING_TTL = 6 * 60 * 60 * 1000;
 const GOLD_HISTORY_TTL = 300_000;
 const NEWS_TTL = 300_000;
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
-const stripeClient = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
-
-function getAppBaseUrl(req: Request) {
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const protocol = typeof forwardedProto === "string" ? forwardedProto : req.protocol;
-  const host = req.get("host");
-  return `${protocol}://${host}`;
-}
 
 function formatVnstockDate(date: Date, withTime = false) {
   const year = date.getFullYear();
@@ -100,7 +90,12 @@ function parseVnstockTime(value: string | number | undefined) {
     return null;
   }
 
-  const parsed = Date.parse(value);
+  const trimmed = value.trim();
+  const hasExplicitTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(trimmed);
+  const normalizedLocalTime = trimmed.match(/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/)
+    ? `${trimmed.replace(" ", "T")}${hasExplicitTimezone ? "" : "+07:00"}`
+    : trimmed;
+  const parsed = Date.parse(normalizedLocalTime);
   if (!Number.isNaN(parsed)) {
     return Math.floor(parsed / 1000);
   }
@@ -755,57 +750,6 @@ async function fetchNews(topic: string, tickers?: string) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  app.post("/api/donations/checkout", async (req, res) => {
-    try {
-      if (!stripeClient) {
-        return res.status(503).json({
-          error: "Stripe chưa được cấu hình trên máy chủ.",
-        });
-      }
-
-      const amount = Number(req.body?.amount);
-      const validAmounts = [50000, 100000, 250000, 500000];
-
-      if (!validAmounts.includes(amount)) {
-        return res.status(400).json({ error: "Mức donate không hợp lệ." });
-      }
-
-      const origin = process.env.STRIPE_APP_URL || getAppBaseUrl(req);
-      const successUrl =
-        process.env.STRIPE_DONATE_SUCCESS_URL || `${origin}/settings?donate=success`;
-      const cancelUrl =
-        process.env.STRIPE_DONATE_CANCEL_URL || `${origin}/settings?donate=cancel`;
-
-      const session = await stripeClient.checkout.sessions.create({
-        mode: "payment",
-        submit_type: "donate",
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: "vnd",
-              unit_amount: amount,
-              product_data: {
-                name: "Donate cho SFund",
-                description: "Ủng hộ chi phí duy trì và phát triển ứng dụng.",
-              },
-            },
-          },
-        ],
-      });
-
-      if (!session.url) {
-        return res.status(500).json({ error: "Không thể tạo liên kết thanh toán." });
-      }
-
-      res.json({ url: session.url });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   app.get("/api/portfolio", async (req, res) => {
     try {
       const items = await storage.getPortfolio();
@@ -1337,4 +1281,3 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   return httpServer;
 }
-

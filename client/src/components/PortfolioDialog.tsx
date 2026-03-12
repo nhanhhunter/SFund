@@ -270,7 +270,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
         })),
       };
       if (isEdit && editItem) {
-        return updatePortfolioItem(user.uid, editItem.id, normalized);
+        return updatePortfolioItem(user.uid, editItem.id, normalized, editItem.addedAt);
       }
 
       return addPortfolioItem(user.uid, normalized);

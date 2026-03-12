@@ -51,6 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PIE_COLORS = ["#1A73E8", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4"];
 const MARKET_REFRESH_INTERVAL = 180_000;
@@ -71,11 +72,16 @@ type EnrichedItem = PortfolioItem & {
   dividendsTotalVnd: number;
   totalReturn: number;
   totalReturnVnd: number;
-  pnlPercent: number;
+  pricePnlPercent: number;
+  totalReturnPercent: number;
   dayPnl: number;
   dayPnlVnd: number;
   dayPnlPercent: number;
+  latestPurchaseAt: string;
+  latestModifiedAt: string;
 };
+
+type PortfolioSortKey = "value" | "type" | "latestPurchase" | "latestModified" | "currency";
 
 function convertPrice(value: number, from: AssetCurrency, to: AssetCurrency, usdToVnd: number) {
   if (!Number.isFinite(value)) return 0;
@@ -236,30 +242,28 @@ function AssetDetailPanel({
         </div>
         <div>
           <p className="text-xs text-muted-foreground mb-0.5">Lãi/Lỗ</p>
-          <p className={cn("font-bold text-sm", getChangeColor(item.totalReturn))}>
-            {item.totalReturn >= 0 ? "+" : ""}
-            {formatAssetPrice(Math.abs(item.totalReturn))} ({formatPercent(item.pnlPercent)})
+          <p className={cn("font-bold text-sm", getChangeColor(item.pricePnl))}>
+            {item.pricePnl >= 0 ? "+" : ""}
+            {formatAssetPrice(Math.abs(item.pricePnl))} ({formatPercent(item.pricePnlPercent)})
           </p>
         </div>
       </div>
 
-      <div className="px-4 py-3 flex items-center justify-between border-b border-card-border">
-        <span className="text-xs text-muted-foreground">Tổng ROI</span>
-        <span className={cn("px-2.5 py-1 rounded-xl text-sm font-semibold", getChangeBg(item.pnlPercent))}>
-          {formatPercent(item.pnlPercent)}
-        </span>
-      </div>
-      {(item.notes || (item.type === "stock" && item.dividendsTotal > 0)) && (
-        <div className="px-4 py-3 border-b border-card-border text-xs">
-          <p className="font-semibold text-foreground">Ghi chú</p>
-          <p className="mt-1 text-muted-foreground">{item.notes || "Chưa có ghi chú."}</p>
-          {item.type === "stock" && item.dividendsTotal > 0 && (
-            <p className="mt-2 text-muted-foreground">
-              Gồm {formatAssetPrice(item.dividendsTotal)} cổ tức, tương ứng {formatPercent(item.costBasis > 0 ? (item.dividendsTotal / item.costBasis) * 100 : 0)}
-            </p>
-          )}
+      <div className="px-4 py-3 border-b border-card-border">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">Tổng ROI</span>
+          <span className={cn("px-2.5 py-1 rounded-xl text-sm font-semibold", getChangeBg(item.totalReturnPercent))}>
+            {formatPercent(item.totalReturnPercent)}
+          </span>
         </div>
-      )}
+        <p className={cn("mt-2 text-sm font-bold", getChangeColor(item.totalReturn))}>
+          {item.totalReturn >= 0 ? "+" : ""}
+          {formatAssetPrice(Math.abs(item.totalReturn))} ({formatPercent(item.totalReturnPercent)})
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Gồm {formatAssetPrice(item.dividendsTotal)} cổ tức, tương ứng {formatPercent(item.costBasis > 0 ? (item.dividendsTotal / item.costBasis) * 100 : 0)}
+        </p>
+      </div>
 
       <div className="px-4 py-3">
         <div className="flex items-center justify-between mb-3">
@@ -300,6 +304,7 @@ export default function PortfolioPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<PortfolioSortKey>("value");
 
   const { data: portfolio, isLoading } = useQuery<PortfolioItem[]>({
     queryKey: ["portfolio", user?.uid],
@@ -422,13 +427,20 @@ export default function PortfolioPage() {
       const dividendsTotalVnd = convertPrice(dividendsTotal, currency, "VND", usdToVnd);
       const totalReturn = pricePnl + dividendsTotal;
       const totalReturnVnd = pricePnlVnd + dividendsTotalVnd;
-      const pnlPercent = costBasis > 0 ? (totalReturn / costBasis) * 100 : 0;
+      const pricePnlPercent = costBasis > 0 ? (pricePnl / costBasis) * 100 : 0;
+      const totalReturnPercent = costBasis > 0 ? (totalReturn / costBasis) * 100 : 0;
       const daily = getDailyChange(item);
       const dayChangePerUnit = convertPrice(daily.change, daily.currency, currency, usdToVnd);
       const dayPnl = item.quantity * dayChangePerUnit;
       const dayPnlVnd = convertPrice(dayPnl, currency, "VND", usdToVnd);
       const previousValue = currentValue - dayPnl;
       const dayPnlPercent = previousValue !== 0 ? (dayPnl / previousValue) * 100 : 0;
+      const latestPurchaseAt = [...item.purchaseLots]
+        .map((lot) => lot.boughtAt)
+        .filter(Boolean)
+        .sort()
+        .at(-1) || item.addedAt;
+      const latestModifiedAt = item.updatedAt || item.addedAt;
 
       return {
         ...item,
@@ -446,10 +458,13 @@ export default function PortfolioPage() {
         dividendsTotalVnd,
         totalReturn,
         totalReturnVnd,
-        pnlPercent,
+        pricePnlPercent,
+        totalReturnPercent,
         dayPnl,
         dayPnlVnd,
         dayPnlPercent,
+        latestPurchaseAt,
+        latestModifiedAt,
       };
     });
   }, [portfolio, cryptoPrices, goldData, oilData, usdToVnd, vnStockPrices]);
@@ -457,8 +472,10 @@ export default function PortfolioPage() {
   const totalValue = enriched.reduce((sum, item) => sum + item.currentValueVnd, 0);
   const totalCost = enriched.reduce((sum, item) => sum + item.costBasisVnd, 0);
   const totalDividends = enriched.reduce((sum, item) => sum + item.dividendsTotalVnd, 0);
-  const totalPnl = totalValue - totalCost + totalDividends;
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  const totalPricePnl = enriched.reduce((sum, item) => sum + item.pricePnlVnd, 0);
+  const totalPricePnlPct = totalCost > 0 ? (totalPricePnl / totalCost) * 100 : 0;
+  const totalRoi = totalPricePnl + totalDividends;
+  const totalRoiPct = totalCost > 0 ? (totalRoi / totalCost) * 100 : 0;
   const totalDayPnl = enriched.reduce((sum, item) => sum + item.dayPnlVnd, 0);
   const totalPreviousValue = totalValue - totalDayPnl;
   const totalDayPnlPct = totalPreviousValue !== 0 ? (totalDayPnl / totalPreviousValue) * 100 : 0;
@@ -483,6 +500,26 @@ export default function PortfolioPage() {
   const formatValue = (item: EnrichedItem) => {
     return formatMoney(item.currentValue, item.currency);
   };
+
+  const sortedEnriched = useMemo(() => {
+    const items = [...enriched];
+    items.sort((a, b) => {
+      if (sortKey === "type") {
+        return assetTypeLabel(a.type).localeCompare(assetTypeLabel(b.type), "vi");
+      }
+      if (sortKey === "currency") {
+        return a.currency.localeCompare(b.currency, "vi") || a.symbol.localeCompare(b.symbol, "vi");
+      }
+      if (sortKey === "latestPurchase") {
+        return new Date(b.latestPurchaseAt).getTime() - new Date(a.latestPurchaseAt).getTime();
+      }
+      if (sortKey === "latestModified") {
+        return new Date(b.latestModifiedAt).getTime() - new Date(a.latestModifiedAt).getTime();
+      }
+      return b.currentValueVnd - a.currentValueVnd;
+    });
+    return items;
+  }, [enriched, sortKey]);
 
   const selectedItem = selectedId ? enriched.find((item) => item.id === selectedId) || null : null;
   const historyItem = historyId ? enriched.find((item) => item.id === historyId) || null : null;
@@ -545,48 +582,30 @@ export default function PortfolioPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-6">
-        <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-3">
+        <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-4">
           <p className="text-xs text-muted-foreground mb-1">Tổng giá trị danh mục</p>
           <div className="text-xl lg:text-2xl font-bold text-foreground">
             {isLoading ? <Skeleton className="h-8 w-32" /> : formatVnd(totalValue)}
           </div>
-          <p className={cn("text-xs lg:text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(totalPnl))}>
-            {totalPnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />}
-            {totalPnl >= 0 ? "+" : ""}
-            {formatVnd(Math.abs(totalPnl))} ({formatPercent(totalPnlPct)})
+          <p className={cn("text-xs lg:text-sm font-medium mt-2 flex items-center gap-1", getChangeColor(totalPricePnl))}>
+            {totalPricePnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />}
+            Lãi/lỗ: {totalPricePnl >= 0 ? "+" : "-"}
+            {formatVnd(Math.abs(totalPricePnl))} ({formatPercent(totalPricePnlPct)})
           </p>
-          <p className={cn("text-xs mt-1", getChangeColor(totalDayPnl))}>
-            Hôm nay: {totalDayPnl >= 0 ? "+" : "-"}
+          <p className={cn("text-xs lg:text-sm font-medium mt-1", getChangeColor(totalRoi))}>
+            ROI: {totalRoi >= 0 ? "+" : "-"}
+            {formatVnd(Math.abs(totalRoi))} ({formatPercent(totalRoiPct)})
+          </p>
+          <p className={cn("text-xs lg:text-sm mt-1", getChangeColor(totalDayPnl))}>
+            Biến động hôm nay: {totalDayPnl >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalDayPnl))} ({formatPercent(totalDayPnlPct)})
           </p>
-          {totalDividends > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Gồm {formatVnd(totalDividends)} cổ tức
-            </p>
-          )}
         </div>
 
-        <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-2">
-          <p className="text-xs text-muted-foreground mb-1">Lãi/Lỗ</p>
-          <p className={cn("text-xl font-bold", getChangeColor(totalPnl))}>{formatPercent(totalPnlPct)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Tổng ROI</p>
-          {totalDividends > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Gồm {formatVnd(totalDividends)} cổ tức
-            </p>
-          )}
-        </div>
-
-        <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-2">
-          <p className="text-xs text-muted-foreground mb-1">Số tài sản</p>
-          <p className="text-xl font-bold text-foreground">{portfolio?.length || 0}</p>
-          <p className="text-xs text-muted-foreground mt-1">Trong danh mục</p>
-        </div>
-
-        <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-5">
+        <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-4">
           <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
             <PieChart className="w-4 h-4 text-primary" />
-            Phân bổ danh mục
+            Phân bổ danh mục ({portfolio?.length || 0})
           </h3>
           {byType.length > 0 ? (
             <ResponsiveContainer width="100%" height={170}>
@@ -604,17 +623,60 @@ export default function PortfolioPage() {
             <div className="h-[170px] flex items-center justify-center text-muted-foreground text-sm">Chưa có dữ liệu</div>
           )}
         </div>
+        <div className="lg:col-span-4">
+          {selectedItem ? (
+            <AssetDetailPanel
+              item={selectedItem}
+              onClose={() => setSelectedId(null)}
+              onShowHistory={() => setHistoryId(selectedItem.id)}
+            />
+          ) : enriched.length > 0 ? (
+            <div className="bg-card border border-card-border rounded-xl p-4">
+              <h3 className="text-sm font-semibold mb-3">Hiệu suất tốt nhất</h3>
+              <div className="space-y-2">
+                {[...enriched]
+                  .sort((a, b) => b.totalReturnPercent - a.totalReturnPercent)
+                  .slice(0, 4)
+                  .map((item) => (
+                    <div key={item.id} className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
+                        <p className="text-xs text-muted-foreground">{item.name}</p>
+                      </div>
+                      <span className={cn("text-sm font-semibold", getChangeColor(item.totalReturnPercent))}>
+                        {formatPercent(item.totalReturnPercent)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-12">
+        <div className="lg:col-span-8">
           <div className="bg-card border border-card-border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-card-border">
+            <div className="px-4 py-3 border-b border-card-border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
                 Danh sách tài sản
                 {selectedItem && <span className="text-xs text-muted-foreground ml-1">(chọn mã để xem chi tiết)</span>}
               </h3>
+              <div className="w-full sm:w-[220px]">
+                <Select value={sortKey} onValueChange={(value) => setSortKey(value as PortfolioSortKey)}>
+                  <SelectTrigger data-testid="select-portfolio-sort">
+                    <SelectValue placeholder="Sắp xếp theo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="value">Giá trị</SelectItem>
+                    <SelectItem value="type">Loại tài sản</SelectItem>
+                    <SelectItem value="latestPurchase">Ngày mua gần nhất</SelectItem>
+                    <SelectItem value="latestModified">Ngày sửa gần nhất</SelectItem>
+                    <SelectItem value="currency">Đơn vị tiền tệ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {isLoading ? (
               <div className="p-4 space-y-3">
@@ -633,7 +695,7 @@ export default function PortfolioPage() {
               </div>
             ) : (
               <div className="divide-y divide-card-border">
-                {enriched.map((item) => (
+                {sortedEnriched.map((item) => (
                   <div
                     key={item.id}
                     data-testid={`portfolio-item-${item.id}`}
@@ -660,8 +722,8 @@ export default function PortfolioPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-bold text-foreground">{formatValue(item)}</p>
-                      <span className={cn("text-xs font-medium px-1.5 py-0.5 rounded-md", getChangeBg(item.pnlPercent))}>
-                        {formatPercent(item.pnlPercent)}
+                      <span className={cn("text-xs font-medium px-1.5 py-0.5 rounded-md", getChangeBg(item.totalReturnPercent))}>
+                        ROI {formatPercent(item.totalReturnPercent)}
                       </span>
                       <p className={cn("text-[11px] mt-1", getChangeColor(item.dayPnl))}>
                         Hôm nay {item.dayPnl >= 0 ? "+" : "-"}
@@ -711,40 +773,12 @@ export default function PortfolioPage() {
               </div>
             )}
           </div>
-
-          <div className="bg-card border border-card-border rounded-xl p-4 mt-4">
-            <NewsSection endpoint={relatedNewsEndpoint} title={relatedNewsTitle} maxItems={4} />
-          </div>
         </div>
 
-        <div className="lg:col-span-1">
-          {selectedItem ? (
-            <AssetDetailPanel
-              item={selectedItem}
-              onClose={() => setSelectedId(null)}
-              onShowHistory={() => setHistoryId(selectedItem.id)}
-            />
-          ) : enriched.length > 0 ? (
-            <div className="bg-card border border-card-border rounded-xl p-4">
-              <h3 className="text-sm font-semibold mb-3">Hiệu suất tốt nhất</h3>
-              <div className="space-y-2">
-                {[...enriched]
-                  .sort((a, b) => b.pnlPercent - a.pnlPercent)
-                  .slice(0, 4)
-                  .map((item) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
-                        <p className="text-xs text-muted-foreground">{item.name}</p>
-                      </div>
-                      <span className={cn("text-sm font-semibold", getChangeColor(item.pnlPercent))}>
-                        {formatPercent(item.pnlPercent)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ) : null}
+        <div className="lg:col-span-4">
+          <div className="bg-card border border-card-border rounded-xl p-4">
+            <NewsSection endpoint={relatedNewsEndpoint} title={relatedNewsTitle} maxItems={4} />
+          </div>
         </div>
       </div>
 

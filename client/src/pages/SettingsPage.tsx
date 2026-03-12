@@ -442,20 +442,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-dashed border-card-border bg-muted/30 p-4 opacity-55">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">Stripe</p>
-                      <p className="text-sm text-muted-foreground">Cổng thanh toán quốc tế</p>
-                    </div>
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                      Chưa hỗ trợ
-                    </span>
-                  </div>
-                  <div className="rounded-xl border border-card-border bg-background/70 p-4 text-sm text-muted-foreground">
-                    Chưa hỗ trợ.
-                  </div>
-                </div>
               </div>
             </div>
           </div>
