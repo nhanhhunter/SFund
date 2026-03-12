@@ -5,6 +5,7 @@ import { insertPortfolioItemSchema, insertWatchlistItemSchema } from "@shared/sc
 import https from "https";
 import http from "http";
 import Stripe from "stripe";
+import { fetchVnstockHistory, fetchVnstockListing, fetchVnstockPriceBoard } from "./vnstock";
 
 function fetchJson(url: string, headers: Record<string, string> = {}): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -61,6 +62,7 @@ function fetchText(url: string, headers: Record<string, string> = {}): Promise<s
 const priceCache: Map<string, { data: any; ts: number }> = new Map();
 const newsCache: Map<string, { data: any; ts: number }> = new Map();
 const PRICE_TTL = 60_000;
+const LISTING_TTL = 6 * 60 * 60 * 1000;
 const GOLD_HISTORY_TTL = 300_000;
 const NEWS_TTL = 300_000;
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
@@ -73,6 +75,49 @@ function getAppBaseUrl(req: Request) {
   return `${protocol}://${host}`;
 }
 
+function formatVnstockDate(date: Date, withTime = false) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  if (!withTime) {
+    return `${year}-${month}-${day}`;
+  }
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function parseVnstockTime(value: string | number | undefined) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+  if (!Number.isNaN(parsed)) {
+    return Math.floor(parsed / 1000);
+  }
+
+  return null;
+}
+
+function normalizeStockHistoryPrice(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return value < 1000 ? value * 1000 : value;
+}
+
+function normalizeStockExchange(exchange?: string) {
+  const value = (exchange || "").trim().toUpperCase();
+  if (value === "UPCOM") return "UpCOM";
+  return value || "";
+}
+
 function cached<T>(cache: Map<string, { data: T; ts: number }>, key: string, ttl: number, fetcher: () => Promise<T>): Promise<T> {
   const entry = cache.get(key);
   if (entry && Date.now() - entry.ts < ttl) return Promise.resolve(entry.data);
@@ -82,45 +127,41 @@ function cached<T>(cache: Map<string, { data: T; ts: number }>, key: string, ttl
   });
 }
 
-// Market ID mapping from VPS API
-const VPS_MARKET_MAP: Record<string, string> = {
-  STO: "HOSE",
-  STX: "HNX",
-  OTC: "UpCOM",
-  STU: "UpCOM",
-};
-
-// Fetch multiple VN stock prices at once using VPS real-time API
 async function fetchVNStockPriceBatch(symbols: string[]): Promise<Record<string, any>> {
-  const symbolStr = symbols.map(s => s.toUpperCase()).join(",");
-  const url = `https://bgapidatafeed.vps.com.vn/getliststockdata/${symbolStr}`;
-  const data = await fetchJson(url);
   const result: Record<string, any> = {};
-  if (!Array.isArray(data)) return result;
+
+  if (!symbols.length) return result;
+
+  const data = await fetchVnstockPriceBoard(symbols);
+
   for (const item of data) {
-    const sym = item.sym as string;
+    const sym = item.symbol?.toUpperCase();
     if (!sym) continue;
-    const lastPrice = (item.lastPrice as number) * 1000;
-    const refPrice = (item.r as number) * 1000;
-    const change = lastPrice - refPrice;
-    const absChangePercent = parseFloat(item.changePc as string) || 0;
-    const changePercent = change < 0 ? -absChangePercent : absChangePercent;
-    const exchange = VPS_MARKET_MAP[item.marketId as string] || "HOSE";
+    const price = Number(item.close_price ?? 0);
+    const refPrice = Number(item.reference_price ?? 0);
+    const change = Number(item.price_change ?? price - refPrice);
+    const changePercent =
+      item.percent_change !== undefined
+        ? Number(item.percent_change)
+        : refPrice > 0
+          ? (change / refPrice) * 100
+          : 0;
+
     result[sym] = {
       symbol: sym,
-      price: lastPrice,
+      price,
       change,
       changePercent,
-      volume: (item.lot as number) * 10,
-      high: (item.highPrice as number) * 1000,
-      low: (item.lowPrice as number) * 1000,
-      open: (item.openPrice as number) * 1000,
+      volume: Number(item.total_trades ?? 0),
+      high: Number(item.high_price ?? 0),
+      low: Number(item.low_price ?? 0),
+      open: Number(item.open_price ?? 0),
       refPrice,
-      ceiling: (item.c as number) * 1000,
-      floor: (item.f as number) * 1000,
+      ceiling: Number(item.ceiling_price ?? 0),
+      floor: Number(item.floor_price ?? 0),
       currency: "VND",
-      exchange,
-      lastUpdated: new Date().toISOString(),
+      exchange: item.exchange || "HOSE",
+      lastUpdated: item.time || new Date().toISOString(),
     };
   }
   return result;
@@ -132,6 +173,32 @@ async function fetchVNStockPrice(symbol: string): Promise<any | null> {
     return batch[symbol.toUpperCase()] || null;
   } catch {
     return null;
+  }
+}
+
+type VNStockListingItem = {
+  symbol: string;
+  name: string;
+  exchange: string;
+  enName?: string;
+};
+
+async function fetchVNStockListing(): Promise<VNStockListingItem[]> {
+  try {
+    const rows = (await cached(priceCache, "vnstock_listing", LISTING_TTL, async () => fetchVnstockListing())) as Awaited<
+      ReturnType<typeof fetchVnstockListing>
+    >;
+
+    return rows
+      .filter((row) => row.symbol && (!row.type || row.type.toLowerCase() === "stock"))
+      .map((row) => ({
+        symbol: row.symbol.toUpperCase(),
+        name: row.organ_name?.trim() || row.symbol.toUpperCase(),
+        exchange: normalizeStockExchange(row.exchange),
+        enName: row.en_organ_name?.trim() || undefined,
+      }));
+  } catch {
+    return VN_STOCK_LIST;
   }
 }
 
@@ -807,10 +874,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const q = ((req.query.q as string) || "").toLowerCase().trim();
       const exchange = (req.query.exchange as string) || "";
-      let results = VN_STOCK_LIST;
+      let results = await fetchVNStockListing();
       if (q) {
         results = results.filter(
-          (s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+          (s) =>
+            s.symbol.toLowerCase().includes(q) ||
+            s.name.toLowerCase().includes(q) ||
+            (s.enName || "").toLowerCase().includes(q)
         );
       }
       if (exchange) {
@@ -823,7 +893,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const batch = await fetchVNStockPriceBatch([q.toUpperCase()]);
           const found = batch[q.toUpperCase()];
           if (found) {
-            return res.json([{ symbol: found.symbol, name: found.symbol, exchange: found.exchange }]);
+            return res.json([
+              {
+                symbol: found.symbol,
+                name: found.symbol,
+                exchange: normalizeStockExchange(found.exchange),
+              },
+            ]);
           }
         } catch {}
       }
@@ -843,8 +919,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return batch[symbol] || null;
       });
       if (!data) return res.status(404).json({ error: "Không tìm thấy mã cổ phiếu" });
-      const meta = VN_STOCK_LIST.find(s => s.symbol === symbol);
-      res.json({ ...data, name: meta?.name || symbol });
+      const listing = await fetchVNStockListing();
+      const meta = listing.find((item) => item.symbol === symbol);
+      res.json({
+        ...data,
+        exchange: normalizeStockExchange(data.exchange || meta?.exchange),
+        name: meta?.name || symbol,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -855,7 +936,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const exchange = (req.query.exchange as string) || "HOSE";
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
-      const filtered = VN_STOCK_LIST.filter(
+      const listing = await fetchVNStockListing();
+      const filtered = listing.filter(
         (s) => !exchange || s.exchange.toLowerCase() === exchange.toLowerCase()
       );
       const paged = filtered.slice((page - 1) * limit, page * limit);
@@ -866,7 +948,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       } catch {}
       const result = paged.map((s) => ({
         ...s,
-        ...(prices[s.symbol] || generateVNPrice(s.symbol)),
+        ...(prices[s.symbol] || {}),
+        exchange: normalizeStockExchange(prices[s.symbol]?.exchange || s.exchange),
       }));
       res.json({ data: result, total: filtered.length, page, limit });
     } catch (err: any) {
@@ -879,12 +962,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { symbol } = req.params;
       const key = `vn_${symbol.toUpperCase()}`;
       const data = await cached(priceCache, key, PRICE_TTL, async () => {
-        const fetched = await fetchVNStockPrice(symbol.toUpperCase());
-        return fetched || generateVNPrice(symbol.toUpperCase());
+        return fetchVNStockPrice(symbol.toUpperCase());
       });
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {
-      res.json(generateVNPrice(req.params.symbol.toUpperCase()));
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -892,16 +975,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const symbols = ((req.query.symbols as string) || "VNM,FPT,VCB,HPG,VIC").split(",").map(s => s.trim().toUpperCase());
       const key = `vn_batch_${symbols.sort().join(",")}`;
-      const results = await cached(priceCache, key, PRICE_TTL, async () => {
-        let data: Record<string, any> = {};
-        try {
-          data = await fetchVNStockPriceBatch(symbols);
-        } catch {}
-        for (const sym of symbols) {
-          if (!data[sym]) data[sym] = generateVNPrice(sym);
-        }
-        return data;
-      });
+      const results = await cached(priceCache, key, PRICE_TTL, async () => fetchVNStockPriceBatch(symbols));
       res.json(results);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -932,6 +1006,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const ids = (req.query.ids as string) || "bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron";
       const data = await cached(priceCache, `crypto_${ids}`, PRICE_TTL, () => fetchCryptoPrice(ids));
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -941,6 +1016,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/prices/gold", async (req, res) => {
     try {
       const data = await cached(priceCache, "gold", PRICE_TTL, fetchGoldPrice);
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -950,6 +1026,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/prices/oil", async (req, res) => {
     try {
       const data = await cached(priceCache, "oil", PRICE_TTL, fetchOilPrice);
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -959,6 +1036,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/prices/indices", async (req, res) => {
     try {
       const data = await cached(priceCache, "vn_indices", PRICE_TTL, fetchVNIndices);
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -999,6 +1077,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = await cached(newsCache, "news_stocks_vietstock", NEWS_TTL, () =>
         fetchVietstockRSS("https://vietstock.vn/830/chung-khoan/co-phieu.rss")
       );
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1010,6 +1089,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = await cached(newsCache, "news_crypto_vietstock", NEWS_TTL, () =>
         fetchVietstockRSS("https://vietstock.vn/4309/the-gioi/tien-ky-thuat-so.rss")
       );
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1021,6 +1101,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = await cached(newsCache, "news_gold_vietstock", NEWS_TTL, () =>
         fetchVietstockRSS("https://vietstock.vn/759/hang-hoa/vang-va-kim-loai-quy.rss")
       );
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1032,6 +1113,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = await cached(newsCache, "news_oil_vietstock", NEWS_TTL, () =>
         fetchVietstockRSS("https://vietstock.vn/34/hang-hoa/nhien-lieu.rss")
       );
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1043,6 +1125,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = await cached(newsCache, "news_intl_finance", NEWS_TTL, () =>
         fetchVietstockRSS("https://vietstock.vn/772/the-gioi/tai-chinh-quoc-te.rss")
       );
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1054,6 +1137,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = await cached(newsCache, "news_industry", NEWS_TTL, () =>
         fetchVietstockRSS("https://vietstock.vn/1329/dong-duong/kinh-te-nganh.rss")
       );
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1068,6 +1152,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: "Invalid RSS URL" });
       }
       const data = await cached(newsCache, `vietstock_${rss}`, NEWS_TTL, () => fetchVietstockRSS(rss));
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch {
       res.json([]);
@@ -1079,6 +1164,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { type, symbol } = req.params;
       const days = parseInt(req.query.days as string) || 30;
       const currentPriceParam = parseFloat(req.query.currentPrice as string) || 0;
+
+      if (type === "stock") {
+        const now = new Date();
+        const start = new Date(now);
+        let interval = "1D";
+
+        if (days <= 1) {
+          start.setHours(9, 0, 0, 0);
+          interval = "5m";
+        } else {
+          start.setDate(start.getDate() - Math.max(days, 2));
+          start.setHours(0, 0, 0, 0);
+        }
+
+        const history = await fetchVnstockHistory(
+          symbol.toUpperCase(),
+          formatVnstockDate(start, days <= 1),
+          formatVnstockDate(now, days <= 1),
+          interval,
+        );
+
+        const mapped = history
+          .map((item) => {
+            const time = parseVnstockTime(item.time);
+            if (!time) return null;
+
+            return {
+              time,
+              open: normalizeStockHistoryPrice(Number(item.open ?? 0)),
+              high: normalizeStockHistoryPrice(Number(item.high ?? 0)),
+              low: normalizeStockHistoryPrice(Number(item.low ?? 0)),
+              close: normalizeStockHistoryPrice(Number(item.close ?? 0)),
+              volume: Number(item.volume ?? 0),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+        return res.json(mapped);
+      }
 
       if (type === "gold") {
         const key = `gold_hist_${symbol.toUpperCase()}_${Math.max(1, Math.min(30, days))}`;
@@ -1144,6 +1268,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         };
       });
 
+      if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1152,3 +1277,5 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   return httpServer;
 }
+
+

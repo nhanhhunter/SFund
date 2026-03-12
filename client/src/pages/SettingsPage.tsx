@@ -403,7 +403,7 @@ export default function SettingsPage() {
                 Bạn có toàn quyền đối với dữ liệu của mình. Hành động này sẽ xóa toàn bộ dữ liệu của bạn.
               </p>
               <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-                Mở xác nhận xóa tài khoản
+                Xóa dữ liệu- Không thể khôi phục
               </Button>
             </div>
 
@@ -475,7 +475,7 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle>Xác nhận xóa tài khoản</DialogTitle>
             <DialogDescription>
-              Hành động này sẽ xóa toàn bộ dữ liệu cá nhân của bạn. Gõ `delete` để tiếp tục.
+              Hành động này sẽ xóa tài khoản gồm toàn bộ dữ liệu cá nhân của bạn. Gõ `delete` để tiếp tục.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

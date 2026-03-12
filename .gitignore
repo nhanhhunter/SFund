@@ -1,5 +1,9 @@
 node_modules
 dist
+.env
+.env.*
+!.env.example
+.vnstock-runtime/
 .DS_Store
 server/public
 vite.config.ts.*

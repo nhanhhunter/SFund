@@ -55,8 +55,8 @@ Relevant files:
 - `client/src/pages/StocksPage.tsx`
 
 ## Market Data Sources
-- Vietnamese stocks: VPS Securities API
-- Vietnamese stock lookup/search: VPS plus local symbol metadata
+- Vietnamese stocks: vnstock Python bridge
+- Vietnamese stock lookup/search: vnstock pricing plus local symbol metadata
 - Market indices:
   - Primary source: VPS index symbols where available
   - Fallback: stooq plus derived values
