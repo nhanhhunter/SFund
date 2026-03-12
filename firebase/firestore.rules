@@ -2,8 +2,89 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function hasOnlyKeys(allowedKeys) {
+      return request.resource.data.keys().hasOnly(allowedKeys);
+    }
+
+    function isString(value) {
+      return value is string;
+    }
+
+    function isNumber(value) {
+      return value is int || value is float;
+    }
+
+    function validAssetType(type) {
+      return type in ['stock', 'crypto', 'gold', 'oil'];
+    }
+
+    function validPortfolioItem() {
+      return hasOnlyKeys(['id', 'symbol', 'name', 'type', 'quantity', 'avgBuyPrice', 'addedAt']) &&
+        isString(request.resource.data.id) &&
+        isString(request.resource.data.symbol) &&
+        isString(request.resource.data.name) &&
+        validAssetType(request.resource.data.type) &&
+        isNumber(request.resource.data.quantity) &&
+        isNumber(request.resource.data.avgBuyPrice) &&
+        isString(request.resource.data.addedAt);
+    }
+
+    function validWatchlistItem() {
+      return hasOnlyKeys(['id', 'symbol', 'name', 'type', 'addedAt']) &&
+        isString(request.resource.data.id) &&
+        isString(request.resource.data.symbol) &&
+        isString(request.resource.data.name) &&
+        validAssetType(request.resource.data.type) &&
+        isString(request.resource.data.addedAt);
+    }
+
+    function validPreferences() {
+      return hasOnlyKeys([
+          'theme',
+          'fontFamily',
+          'menuOrder',
+          'hiddenMenuItems',
+          'displayName',
+          'avatar',
+          'updatedAt',
+        ]) &&
+        request.resource.data.theme in ['light', 'dark'] &&
+        request.resource.data.fontFamily in ['editorial', 'sans', 'display'] &&
+        request.resource.data.menuOrder is list &&
+        request.resource.data.hiddenMenuItems is list &&
+        request.resource.data.displayName is string &&
+        request.resource.data.avatar is string &&
+        request.resource.data.updatedAt is string;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /portfolio/{itemId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validPortfolioItem();
+        allow delete: if isOwner(userId);
+      }
+
+      match /watchlist/{itemId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validWatchlistItem();
+        allow delete: if isOwner(userId);
+      }
+
+      match /settings/preferences {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validPreferences();
+        allow delete: if isOwner(userId);
+      }
     }
 
     match /{document=**} {

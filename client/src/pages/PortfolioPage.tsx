@@ -307,7 +307,7 @@ export default function PortfolioPage() {
     return (
       <AuthGate
         title="Đăng nhập để quản lý danh mục"
-        description="Danh mục đầu tư của bạn sẽ được lưu trong Firestore và đồng bộ theo tài khoản Google."
+        description="Danh mục đầu tư của bạn được lưu trữ an toàn trên Google Cloud Firestore và chỉ đồng bộ trong tài khoản của bạn."
       />
     );
   }

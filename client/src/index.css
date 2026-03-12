@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -85,6 +87,18 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+:root[data-font="editorial"] {
+  --font-sans: "New York", "Georgia", "Times New Roman", ui-serif, serif;
+}
+
+:root[data-font="sans"] {
+  --font-sans: "Be Vietnam Pro", "Segoe UI", sans-serif;
+}
+
+:root[data-font="display"] {
+  --font-sans: "Space Grotesk", "Segoe UI", sans-serif;
 }
 
 .dark {

@@ -419,7 +419,7 @@ export default function WatchlistPage() {
     return (
       <AuthGate
         title="Đăng nhập để đồng bộ watchlist"
-        description="Danh sách theo dõi sẽ được lưu trong Firestore riêng cho tài khoản Google của bạn."
+        description="Danh sách theo dõi của bạn được lưu trữ an toàn trên Google Cloud Firestore và chỉ hiển thị trong tài khoản của bạn."
       />
     );
   }

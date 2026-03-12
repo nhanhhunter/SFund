@@ -1,224 +1,69 @@
-import { useState } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  TrendingUp,
+  BarChart3,
+  Bitcoin,
   CircleDollarSign,
   Droplets,
-  Bitcoin,
-  Star,
-  Moon,
-  Sun,
-  Menu,
-  X,
-  BarChart3,
-  Settings,
-  ChevronUp,
-  ChevronDown,
-  Eye,
-  EyeOff,
+  LayoutDashboard,
   LogIn,
   LogOut,
+  Menu,
+  Moon,
+  Settings,
+  Star,
+  Sun,
+  TrendingUp,
+  X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
-import { useToast } from "@/hooks/use-toast";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
-type NavItemDef = { href: string; label: string; iconKey: string };
-
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  portfolio: BarChart3,
-  watchlist: Star,
-  dashboard: LayoutDashboard,
-  stocks: TrendingUp,
-  gold: CircleDollarSign,
-  oil: Droplets,
-  crypto: Bitcoin,
-};
+type NavItemDef = { href: string; label: string; icon: ComponentType<{ className?: string }> };
 
 const DEFAULT_NAV_ITEMS: NavItemDef[] = [
-  { href: "/portfolio", label: "Danh mục", iconKey: "portfolio" },
-  { href: "/watchlist", label: "Theo dõi", iconKey: "watchlist" },
-  { href: "/", label: "Tổng quan", iconKey: "dashboard" },
-  { href: "/stocks", label: "Cổ phiếu", iconKey: "stocks" },
-  { href: "/gold", label: "Vàng", iconKey: "gold" },
-  { href: "/oil", label: "Dầu thô", iconKey: "oil" },
-  { href: "/crypto", label: "Crypto", iconKey: "crypto" },
+  { href: "/portfolio", label: "Danh mục", icon: BarChart3 },
+  { href: "/watchlist", label: "Theo dõi", icon: Star },
+  { href: "/", label: "Tổng quan", icon: LayoutDashboard },
+  { href: "/stocks", label: "Cổ phiếu", icon: TrendingUp },
+  { href: "/gold", label: "Vàng", icon: CircleDollarSign },
+  { href: "/oil", label: "Dầu thô", icon: Droplets },
+  { href: "/crypto", label: "Crypto", icon: Bitcoin },
 ];
 
-function useLocalStorage<T>(key: string, def: T) {
-  const [v, setV] = useState<T>(() => {
-    try {
-      const s = localStorage.getItem(key);
-      return s ? JSON.parse(s) : def;
-    } catch {
-      return def;
-    }
-  });
-
-  const set = (val: T) => {
-    setV(val);
-    try {
-      localStorage.setItem(key, JSON.stringify(val));
-    } catch {}
-  };
-
-  return [v, set] as const;
-}
-
-function SidebarSettingsModal({
-  items,
-  hidden,
-  onReorder,
-  onToggleHidden,
-  onClose,
-}: {
-  items: NavItemDef[];
-  hidden: string[];
-  onReorder: (items: NavItemDef[]) => void;
-  onToggleHidden: (href: string) => void;
-  onClose: () => void;
-}) {
-  const moveUp = (idx: number) => {
-    if (idx === 0) return;
-    const next = [...items];
-    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-    onReorder(next);
-  };
-
-  const moveDown = (idx: number) => {
-    if (idx === items.length - 1) return;
-    const next = [...items];
-    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-    onReorder(next);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-card border border-card-border rounded-2xl p-5 w-full max-w-sm shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold">Tùy chỉnh menu</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-xs text-muted-foreground mb-3">
-          Sắp xếp thứ tự và ẩn/hiện các mục trong menu
-        </p>
-        <div className="space-y-1 mb-4">
-          {items.map((item, idx) => {
-            const Icon = ICON_MAP[item.iconKey];
-            const isHidden = hidden.includes(item.href);
-
-            return (
-              <div
-                key={item.href}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-2 rounded-xl border transition-colors",
-                  isHidden ? "bg-muted/50 border-transparent opacity-60" : "bg-muted/30 border-transparent",
-                )}
-              >
-                <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span
-                  className={cn(
-                    "flex-1 text-sm",
-                    isHidden && "line-through text-muted-foreground",
-                  )}
-                >
-                  {item.label}
-                </span>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={() => moveUp(idx)}
-                    disabled={idx === 0}
-                    className="p-1 rounded hover:bg-muted disabled:opacity-20"
-                    data-testid={`btn-nav-up-${item.iconKey}`}
-                  >
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => moveDown(idx)}
-                    disabled={idx === items.length - 1}
-                    className="p-1 rounded hover:bg-muted disabled:opacity-20"
-                    data-testid={`btn-nav-down-${item.iconKey}`}
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onToggleHidden(item.href)}
-                    className="p-1 rounded hover:bg-muted"
-                    data-testid={`btn-nav-toggle-${item.iconKey}`}
-                  >
-                    {isHidden ? (
-                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
-                    ) : (
-                      <Eye className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <Button onClick={onClose} className="w-full">
-          Đóng
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const { user, enabled, signInWithGoogle, signOutUser } = useAuth();
-  const { toast } = useToast();
-  const [darkMode, setDarkMode] = useState(false);
+  const { user, enabled, signOutUser } = useAuth();
+  const { preferences, updatePreferences } = useUserPreferences();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showSidebarSettings, setShowSidebarSettings] = useState(false);
-  const [navItems, setNavItems] = useLocalStorage<NavItemDef[]>(
-    "nav_items_order",
-    DEFAULT_NAV_ITEMS,
-  );
-  const [hiddenNavItems, setHiddenNavItems] = useLocalStorage<string[]>(
-    "nav_items_hidden",
-    [],
-  );
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
 
-  const visibleItems = navItems.filter((item) => !hiddenNavItems.includes(item.href));
+  const navItems = preferences.menuOrder
+    .map((href) => DEFAULT_NAV_ITEMS.find((item) => item.href === href))
+    .filter((item): item is NavItemDef => Boolean(item))
+    .filter((item) => !preferences.hiddenMenuItems.includes(item.href));
 
-  const toggleDark = () => {
-    setDarkMode((d) => {
-      if (!d) document.documentElement.classList.add("dark");
-      else document.documentElement.classList.remove("dark");
-      return !d;
+  const displayName =
+    preferences.displayName.trim() || user?.displayName?.trim() || user?.email?.split("@")[0] || "Người dùng";
+
+  const toggleTheme = async () => {
+    await updatePreferences({
+      theme: preferences.theme === "dark" ? "light" : "dark",
     });
-  };
-
-  const toggleHidden = (href: string) => {
-    setHiddenNavItems(
-      hiddenNavItems.includes(href)
-        ? hiddenNavItems.filter((h) => h !== href)
-        : [...hiddenNavItems, href],
-    );
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      toast({
-        title: "Không thể đăng nhập Google",
-        description: (error as Error).message,
-        variant: "destructive",
-      });
-    }
   };
 
   const NavItems = ({ onClick }: { onClick?: () => void }) => (
     <>
-      {visibleItems.map(({ href, label, iconKey }) => {
-        const Icon = ICON_MAP[iconKey];
+      {navItems.map(({ href, label, icon: Icon }) => {
         const active = location === href;
 
         return (
@@ -228,13 +73,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             onClick={onClick}
             data-testid={`nav-${href.replace("/", "") || "home"}`}
             className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+              "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-primary/10 text-primary"
                 : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             )}
           >
-            <Icon className="w-4 h-4 shrink-0" />
+            <Icon className="h-4 w-4 shrink-0" />
             {label}
           </Link>
         );
@@ -242,66 +87,80 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     </>
   );
 
+  const AccountBlock = () => {
+    if (!enabled) {
+      return (
+        <div className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
+          Chưa cấu hình Firebase
+        </div>
+      );
+    }
+
+    if (!user) {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setAuthDialogOpen(true)}
+          className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
+        >
+          <LogIn className="h-4 w-4" />
+          Đăng nhập
+        </Button>
+      );
+    }
+
+    return (
+      <div className="mb-2 rounded-xl bg-sidebar-accent/40 px-3 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-lg">
+            {preferences.avatar}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <aside className="hidden md:flex flex-col w-56 border-r border-border bg-sidebar shrink-0">
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-sidebar-border">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[#fa00af]">
-            <TrendingUp className="w-4 h-4 text-white" />
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-sidebar md:flex">
+        <div className="flex items-center gap-2 border-b border-sidebar-border px-4 py-5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#fa00af]">
+            <TrendingUp className="h-4 w-4 text-white" />
           </div>
-          <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
-            SFund
-          </span>
+          <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">SFund</span>
         </div>
 
-        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">
           <NavItems />
         </nav>
 
-        <div className="px-2 py-4 border-t border-sidebar-border space-y-0.5">
-          {enabled ? (
-            user ? (
-              <div className="px-2 py-2 mb-2 rounded-xl bg-sidebar-accent/40">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  {user.displayName || "Google user"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-              </div>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleGoogleLogin()}
-                className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
-              >
-                <LogIn className="w-4 h-4" />
-                Đăng nhập Google
-              </Button>
-            )
-          ) : (
-            <div className="px-2 py-2 mb-2 rounded-xl bg-amber-500/10 text-xs text-muted-foreground">
-              Chưa cấu hình Firebase
-            </div>
-          )}
+        <div className="space-y-1 border-t border-sidebar-border px-2 py-4">
+          <AccountBlock />
           <Button
+            asChild
             variant="ghost"
             size="sm"
-            onClick={() => setShowSidebarSettings(true)}
-            data-testid="btn-sidebar-settings"
             className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
           >
-            <Settings className="w-4 h-4" />
-            Tùy chỉnh menu
+            <Link href="/settings">
+              <Settings className="h-4 w-4" />
+              Cài đặt
+            </Link>
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={toggleDark}
+            onClick={() => void toggleTheme()}
             data-testid="toggle-darkmode"
             className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
           >
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            {darkMode ? "Sáng" : "Tối"}
+            {preferences.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {preferences.theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
           </Button>
           {user && (
             <Button
@@ -310,88 +169,104 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => void signOutUser()}
               className="w-full justify-start gap-2 text-sidebar-foreground hover:text-sidebar-foreground"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
               Đăng xuất
             </Button>
           )}
         </div>
       </aside>
 
-      <div className="fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center px-4 md:hidden z-50">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-white" />
+      <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center border-b border-sidebar-border bg-sidebar px-4 md:hidden">
+        <div className="flex flex-1 items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+            <TrendingUp className="h-4 w-4 text-white" />
           </div>
-          <span className="font-semibold text-sm">VN Finance</span>
+          <span className="text-sm font-semibold">SFund</span>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
-          <Menu className="w-5 h-5" />
+          <Menu className="h-5 w-5" />
         </Button>
       </div>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border">
-              <span className="font-semibold text-sm">Menu</span>
+          <aside className="absolute bottom-0 left-0 top-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
+            <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-4">
+              <span className="text-sm font-semibold">Menu</span>
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
-            <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+            <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">
               <NavItems onClick={() => setMobileOpen(false)} />
             </nav>
-            <div className="px-2 py-4 border-t border-sidebar-border space-y-0.5">
+            <div className="space-y-1 border-t border-sidebar-border px-2 py-4">
               {enabled && !user && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => void handleGoogleLogin()}
+                  onClick={() => {
+                    setMobileOpen(false);
+                    setAuthDialogOpen(true);
+                  }}
                   className="w-full justify-start gap-2 text-sidebar-foreground"
                 >
-                  <LogIn className="w-4 h-4" />
-                  Đăng nhập Google
+                  <LogIn className="h-4 w-4" />
+                  Đăng nhập
                 </Button>
               )}
-              {user && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void signOutUser()}
-                  className="w-full justify-start gap-2 text-sidebar-foreground"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Đăng xuất
-                </Button>
-              )}
+              <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground">
+                <Link href="/settings" onClick={() => setMobileOpen(false)}>
+                  <Settings className="h-4 w-4" />
+                  Cài đặt
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setMobileOpen(false);
-                  setShowSidebarSettings(true);
+                  void toggleTheme();
                 }}
                 className="w-full justify-start gap-2 text-sidebar-foreground"
               >
-                <Settings className="w-4 h-4" />
-                Tùy chỉnh menu
+                {preferences.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {preferences.theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
               </Button>
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    void signOutUser();
+                  }}
+                  className="w-full justify-start gap-2 text-sidebar-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Đăng xuất
+                </Button>
+              )}
             </div>
           </aside>
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto md:pt-0 pt-14">{children}</main>
-      {showSidebarSettings && (
-        <SidebarSettingsModal
-          items={navItems}
-          hidden={hiddenNavItems}
-          onReorder={setNavItems}
-          onToggleHidden={toggleHidden}
-          onClose={() => setShowSidebarSettings(false)}
-        />
-      )}
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">{children}</main>
+
+      <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Đăng nhập tài khoản</DialogTitle>
+          </DialogHeader>
+          <AuthPanel
+            title="Tiếp tục với tài khoản của bạn"
+            description="Đăng nhập để đồng bộ danh mục, danh sách theo dõi và cài đặt cá nhân trên mọi thiết bị."
+            onSuccess={() => setAuthDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

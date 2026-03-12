@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getDoc,
   orderBy,
   query,
   setDoc,
@@ -15,6 +16,41 @@ import {
   type WatchlistItem,
 } from "@shared/schema";
 import { db } from "@/lib/firebase";
+
+export type ThemePreference = "light" | "dark";
+export type FontPreference = "editorial" | "sans" | "display";
+
+export type UserPreferences = {
+  theme: ThemePreference;
+  fontFamily: FontPreference;
+  menuOrder: string[];
+  hiddenMenuItems: string[];
+  displayName: string;
+  avatar: string;
+  updatedAt: string;
+};
+
+export const DEFAULT_NAV_ORDER = [
+  "/portfolio",
+  "/watchlist",
+  "/",
+  "/stocks",
+  "/gold",
+  "/oil",
+  "/crypto",
+] as const;
+
+export const AVATAR_CHOICES = ["🧭", "📈", "💼", "🚀", "🛡️"] as const;
+
+export const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  theme: "light",
+  fontFamily: "editorial",
+  menuOrder: [...DEFAULT_NAV_ORDER],
+  hiddenMenuItems: [],
+  displayName: "",
+  avatar: AVATAR_CHOICES[0],
+  updatedAt: new Date(0).toISOString(),
+};
 
 function requireDb() {
   if (!db) {
@@ -30,6 +66,10 @@ function portfolioCollection(userId: string) {
 
 function watchlistCollection(userId: string) {
   return collection(requireDb(), "users", userId, "watchlist");
+}
+
+function preferencesDoc(userId: string) {
+  return doc(requireDb(), "users", userId, "settings", "preferences");
 }
 
 export async function listPortfolioItems(userId: string): Promise<PortfolioItem[]> {
@@ -100,4 +140,13 @@ export async function addWatchlistItem(
 
 export async function removeWatchlistItem(userId: string, id: string) {
   await deleteDoc(doc(watchlistCollection(userId), id));
+}
+
+export async function getUserPreferences(userId: string): Promise<UserPreferences | null> {
+  const snapshot = await getDoc(preferencesDoc(userId));
+  return snapshot.exists() ? (snapshot.data() as UserPreferences) : null;
+}
+
+export async function saveUserPreferences(userId: string, preferences: UserPreferences) {
+  await setDoc(preferencesDoc(userId), preferences, { merge: true });
 }
