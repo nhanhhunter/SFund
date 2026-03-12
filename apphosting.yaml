@@ -23,6 +23,3 @@ env:
 
   - variable: CORS_ORIGIN
     secret: cors-origin
-
-  - variable: VNSTOCK_API_KEY
-    secret: vnstock-api-key
