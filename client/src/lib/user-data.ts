@@ -72,6 +72,11 @@ function preferencesDoc(userId: string) {
   return doc(requireDb(), "users", userId, "settings", "preferences");
 }
 
+async function deleteCollectionDocuments(pathCollection: ReturnType<typeof collection>) {
+  const snapshot = await getDocs(pathCollection);
+  await Promise.all(snapshot.docs.map((item) => deleteDoc(item.ref)));
+}
+
 export async function listPortfolioItems(userId: string): Promise<PortfolioItem[]> {
   const snapshot = await getDocs(
     query(portfolioCollection(userId), orderBy("addedAt", "desc")),
@@ -149,4 +154,12 @@ export async function getUserPreferences(userId: string): Promise<UserPreference
 
 export async function saveUserPreferences(userId: string, preferences: UserPreferences) {
   await setDoc(preferencesDoc(userId), preferences, { merge: true });
+}
+
+export async function deleteAllUserData(userId: string) {
+  await Promise.all([
+    deleteCollectionDocuments(portfolioCollection(userId)),
+    deleteCollectionDocuments(watchlistCollection(userId)),
+    deleteDoc(preferencesDoc(userId)).catch(() => undefined),
+  ]);
 }

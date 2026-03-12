@@ -9,6 +9,7 @@ import {
 import {
   EmailAuthProvider,
   createUserWithEmailAndPassword,
+  deleteUser,
   getRedirectResult,
   onAuthStateChanged,
   reauthenticateWithCredential,
@@ -32,6 +33,7 @@ type AuthContextValue = {
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
   changePassword: (currentPassword: string, nextPassword: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   signOutUser: () => Promise<void>;
 };
 
@@ -67,13 +69,13 @@ function mapAuthError(error: unknown): Error {
     case "auth/weak-password":
       return new Error("Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt.");
     case "auth/requires-recent-login":
-      return new Error("Phiên đăng nhập đã cũ. Hãy đăng nhập lại rồi thử đổi mật khẩu.");
+      return new Error("Phiên đăng nhập đã cũ. Hãy đăng nhập lại rồi thử lại.");
     case "auth/unauthorized-domain":
       return new Error("Domain hiện tại chưa được thêm vào Authorized domains trong Firebase Authentication.");
     case "auth/popup-blocked":
       return new Error("Trình duyệt đang chặn cửa sổ đăng nhập.");
     default:
-      return new Error((error as Error)?.message || "Không thể đăng nhập lúc này.");
+      return new Error((error as Error)?.message || "Không thể xử lý yêu cầu lúc này.");
   }
 }
 
@@ -174,6 +176,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
           await reauthenticateWithCredential(auth.currentUser, credential);
           await updatePassword(auth.currentUser, nextPassword);
+        } catch (error) {
+          throw mapAuthError(error);
+        }
+      },
+      async deleteAccount() {
+        if (!auth?.currentUser) {
+          throw new Error("Bạn cần đăng nhập để xóa tài khoản.");
+        }
+
+        try {
+          await deleteUser(auth.currentUser);
         } catch (error) {
           throw mapAuthError(error);
         }

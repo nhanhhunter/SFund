@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, LockKeyhole, MoonStar, Paintbrush2, Shield, UserCircle2 } from "lucide-react";
+import { HandCoins, Heart, LockKeyhole, MoonStar, Paintbrush2, Shield, Trash2, UserCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import AuthGate from "@/components/AuthGate";
 import { useAuth } from "@/components/AuthProvider";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { deleteAllUserData } from "@/lib/user-data";
+import momoQrImage from "../../../attached_assets/momoQR.jpg";
 
 const MENU_ITEMS = [
   { href: "/portfolio", label: "Danh mục" },
@@ -28,12 +30,14 @@ const FONT_OPTIONS = [
 ] as const;
 
 export default function SettingsPage() {
-  const { user, loading, updateDisplayName, changePassword } = useAuth();
+  const { user, loading, updateDisplayName, changePassword, deleteAccount } = useAuth();
   const { preferences, updatePreferences } = useUserPreferences();
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState(preferences.displayName);
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -43,6 +47,13 @@ export default function SettingsPage() {
   useEffect(() => {
     setDisplayName(preferences.displayName);
   }, [preferences.displayName]);
+
+  useEffect(() => {
+    const support = new URLSearchParams(window.location.search).get("support");
+    if (support === "thanks") {
+      toast({ title: "Cảm ơn bạn đã ủng hộ SFund" });
+    }
+  }, [toast]);
 
   if (loading) {
     return <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-muted-foreground">Đang tải cài đặt...</div>;
@@ -113,6 +124,23 @@ export default function SettingsPage() {
       });
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setDeletingAccount(true);
+      await deleteAllUserData(user.uid);
+      await deleteAccount();
+      toast({ title: "Tài khoản và dữ liệu đã được xóa" });
+    } catch (error) {
+      toast({
+        title: "Không thể xóa tài khoản",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -265,47 +293,135 @@ export default function SettingsPage() {
             <LockKeyhole className="h-5 w-5 text-primary" />
             <div>
               <h2 className="font-semibold text-foreground">Bảo mật</h2>
-              <p className="text-sm text-muted-foreground">Đổi mật khẩu cho tài khoản đăng nhập bằng email.</p>
+              <p className="text-sm text-muted-foreground">Quản lý mật khẩu, xóa tài khoản và hỗ trợ chi phí vận hành.</p>
             </div>
           </div>
 
-          {canChangePassword ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                />
+          <div className="space-y-5">
+            <div className="rounded-xl border border-card-border p-4">
+              <div className="mb-3">
+                <p className="font-medium text-foreground">Đổi mật khẩu</p>
+                <p className="text-sm text-muted-foreground">Áp dụng cho tài khoản đăng nhập bằng email/password.</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="next-password">Mật khẩu mới</Label>
-                <Input
-                  id="next-password"
-                  type="password"
-                  value={nextPassword}
-                  onChange={(event) => setNextPassword(event.target.value)}
-                  placeholder="Ít nhất 8 ký tự, gồm hoa, thường và đặc biệt"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt.
-                </p>
+              {canChangePassword ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="next-password">Mật khẩu mới</Label>
+                    <Input
+                      id="next-password"
+                      type="password"
+                      value={nextPassword}
+                      onChange={(event) => setNextPassword(event.target.value)}
+                      placeholder="Ít nhất 8 ký tự, gồm hoa, thường và đặc biệt"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => void handlePasswordChange()}
+                    disabled={savingPassword || !currentPassword || !nextPassword}
+                  >
+                    {savingPassword ? "Đang cập nhật..." : "Đổi mật khẩu"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Tài khoản này đang dùng nhà cung cấp đăng nhập khác ngoài email/password. Nếu bạn đăng nhập bằng
+                  Google, hãy quản lý mật khẩu trực tiếp trong tài khoản Google của mình.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-destructive" />
+                <p className="font-medium text-foreground">Xóa tài khoản</p>
               </div>
-              <Button
-                onClick={() => void handlePasswordChange()}
-                disabled={savingPassword || !currentPassword || !nextPassword}
-              >
-                {savingPassword ? "Đang cập nhật..." : "Đổi mật khẩu"}
-              </Button>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Hành động này sẽ xóa danh mục, watchlist, cài đặt và yêu cầu xóa tài khoản đăng nhập hiện tại.
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="delete-confirm">Gõ `delete` để xác nhận</Label>
+                  <Input
+                    id="delete-confirm"
+                    value={deleteConfirm}
+                    onChange={(event) => setDeleteConfirm(event.target.value)}
+                    placeholder="delete"
+                  />
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => void handleDeleteAccount()}
+                  disabled={deletingAccount || deleteConfirm.trim().toLowerCase() !== "delete"}
+                >
+                  {deletingAccount ? "Đang xóa..." : "Xóa toàn bộ dữ liệu và tài khoản"}
+                </Button>
+              </div>
             </div>
-          ) : (
-            <div className="rounded-xl border border-card-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Tài khoản này đang dùng nhà cung cấp đăng nhập khác ngoài email/password. Nếu bạn đăng nhập bằng Google,
-              hãy quản lý mật khẩu trực tiếp trong tài khoản Google của mình.
+
+            <div className="rounded-xl border border-card-border p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <HandCoins className="h-4 w-4 text-primary" />
+                <p className="font-medium text-foreground">Donate</p>
+              </div>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Nếu SFund hữu ích với bạn, sự ủng hộ của bạn sẽ giúp duy trì tên miền, hosting và các API đang dùng cho ứng dụng.
+              </p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-foreground">Momo</p>
+                      <p className="text-sm text-muted-foreground">Quét mã hoặc chuyển khoản trực tiếp</p>
+                    </div>
+                    <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
+                      Đang hỗ trợ
+                    </span>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-card-border bg-white p-3">
+                    <img
+                      src={momoQrImage}
+                      alt="Momo QR"
+                      className="mx-auto aspect-square w-full max-w-[220px] rounded-xl object-cover"
+                    />
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm text-muted-foreground">Số điện thoại Momo</p>
+                    <p className="text-lg font-semibold tracking-wide text-foreground">0906.953.436</p>
+                    <p className="text-sm text-muted-foreground">
+                      Cảm ơn bạn đã hỗ trợ chi phí tên miền, hosting và API để SFund tiếp tục vận hành ổn định.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-dashed border-card-border bg-muted/30 p-4 opacity-55">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-foreground">Stripe</p>
+                      <p className="text-sm text-muted-foreground">Cổng thanh toán quốc tế</p>
+                    </div>
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                      Chưa hỗ trợ
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-card-border bg-background/70 p-4 text-sm text-muted-foreground">
+                    Tùy chọn Stripe đã được chuẩn bị trong hệ thống nhưng hiện chưa mở để sử dụng.
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </section>
       </div>
 
