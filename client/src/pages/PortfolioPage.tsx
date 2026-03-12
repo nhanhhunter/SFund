@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Plus,
@@ -8,6 +8,7 @@ import {
   TrendingDown,
   BarChart3,
   PieChart,
+  RefreshCw,
   X,
   ArrowLeft,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import {
   cn,
   formatCurrency,
   formatPercent,
+  formatVnd,
   getChangeBg,
   getChangeColor,
   assetTypeLabel,
@@ -43,6 +45,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PIE_COLORS = ["#1A73E8", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4"];
+const MARKET_REFRESH_INTERVAL = 180_000;
+
 type Period = "1" | "7" | "30";
 
 type EnrichedItem = PortfolioItem & {
@@ -65,7 +69,7 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
 
   const formatAssetPrice = (value: number) => {
     if (item.type === "stock" || item.type === "gold") {
-      return `${new Intl.NumberFormat("vi-VN").format(Math.round(value))}đ`;
+      return formatVnd(Math.round(value));
     }
 
     return formatCurrency(value);
@@ -94,20 +98,20 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
           <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.currentPrice)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground mb-0.5">Giá mua TB</p>
-          <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.avgBuyPrice)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
-          <p className="font-bold text-sm text-foreground">{item.quantity}</p>
-        </div>
-        <div>
           <p className="text-xs text-muted-foreground mb-0.5">Giá trị hiện tại</p>
           <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.currentValue)}</p>
         </div>
         <div>
+          <p className="text-xs text-muted-foreground mb-0.5">Giá mua TB</p>
+          <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.avgBuyPrice)}</p>
+        </div>
+        <div>
           <p className="text-xs text-muted-foreground mb-0.5">Giá vốn</p>
           <p className="font-bold text-sm text-foreground">{formatAssetPrice(item.costBasis)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
+          <p className="font-bold text-sm text-foreground">{item.quantity}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground mb-0.5">Lãi/Lỗ</p>
@@ -168,24 +172,24 @@ export default function PortfolioPage() {
     queryKey: ["portfolio", user?.uid],
     queryFn: () => listPortfolioItems(user!.uid),
     enabled: !!user && enabled,
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const { data: cryptoPrices } = useQuery<Record<string, any>>({
     queryKey: ["/api/prices/crypto"],
     queryFn: () =>
       fetchJson("/api/prices/crypto?ids=bitcoin,ethereum,binancecoin,solana,ripple,cardano,dogecoin,tron"),
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const { data: goldData } = useQuery<any>({
     queryKey: ["/api/prices/gold"],
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const { data: oilData } = useQuery<any>({
     queryKey: ["/api/prices/oil"],
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const stockSymbols = useMemo(
@@ -197,7 +201,7 @@ export default function PortfolioPage() {
     queryKey: ["/api/prices/vn-batch", stockSymbols],
     queryFn: () => (stockSymbols ? fetchJson(`/api/prices/vn-batch?symbols=${stockSymbols}`) : Promise.resolve({})),
     enabled: !!stockSymbols,
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const deleteMutation = useMutation({
@@ -262,6 +266,14 @@ export default function PortfolioPage() {
   const totalDayPnl = enriched.reduce((sum, item) => sum + item.dayPnl, 0);
   const totalPreviousValue = totalValue - totalDayPnl;
   const totalDayPnlPct = totalPreviousValue !== 0 ? (totalDayPnl / totalPreviousValue) * 100 : 0;
+  const stockLastUpdated = Object.values(vnStockPrices || {})
+    .map((item: any) => item?.lastUpdated)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const stockUpdatedLabel = stockLastUpdated
+    ? new Date(stockLastUpdated).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false })
+    : "--";
 
   const byType = useMemo(() => {
     const groups: Record<string, number> = {};
@@ -274,7 +286,7 @@ export default function PortfolioPage() {
 
   const formatValue = (item: EnrichedItem) => {
     if (item.type === "stock" || item.type === "gold") {
-      return `${new Intl.NumberFormat("vi-VN").format(Math.round(item.currentValue))}đ`;
+      return formatVnd(Math.round(item.currentValue));
     }
 
     return formatCurrency(item.currentValue);
@@ -290,9 +302,15 @@ export default function PortfolioPage() {
           ? "/api/news/gold"
           : "/api/news/oil"
     : "/api/news/stocks";
-  const relatedNewsTitle = selectedItem
-    ? `Tin liên quan ${selectedItem.symbol.toUpperCase()}`
-    : "Tin liên quan";
+
+  const refreshMarketData = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/prices/vn-batch"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/prices/crypto"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/prices/gold"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/prices/oil"] });
+  };
+
+  const relatedNewsTitle = selectedItem ? `Tin liên quan ${selectedItem.symbol.toUpperCase()}` : "Tin liên quan";
 
   if (loading) {
     return (
@@ -317,28 +335,36 @@ export default function PortfolioPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Danh mục đầu tư</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{portfolio?.length || 0} tài sản</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {portfolio?.length || 0} tài sản • Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Tự động mới 3 phút
+          </p>
         </div>
-        <Button onClick={() => setAddOpen(true)} data-testid="button-add-portfolio" className="gap-2">
-          <Plus className="w-4 h-4" />
-          Thêm tài sản
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={refreshMarketData} className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            Làm mới
+          </Button>
+          <Button onClick={() => setAddOpen(true)} data-testid="button-add-portfolio" className="gap-2">
+            <Plus className="w-4 h-4" />
+            Thêm tài sản
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-3">
           <p className="text-xs text-muted-foreground mb-1">Tổng giá trị danh mục</p>
           <div className="text-xl lg:text-2xl font-bold text-foreground">
-            {isLoading ? <Skeleton className="h-8 w-32" /> : `~${formatCurrency(totalValue)}`}
+            {isLoading ? <Skeleton className="h-8 w-32" /> : formatVnd(totalValue)}
           </div>
           <p className={cn("text-xs lg:text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(totalPnl))}>
             {totalPnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />}
             {totalPnl >= 0 ? "+" : ""}
-            {formatCurrency(Math.abs(totalPnl))} ({formatPercent(totalPnlPct)})
+            {formatVnd(Math.abs(totalPnl))} ({formatPercent(totalPnlPct)})
           </p>
           <p className={cn("text-xs mt-1", getChangeColor(totalDayPnl))}>
             Hôm nay: {totalDayPnl >= 0 ? "+" : "-"}
-            {formatCurrency(Math.abs(totalDayPnl))} ({formatPercent(totalDayPnlPct)})
+            {formatVnd(Math.abs(totalDayPnl))} ({formatPercent(totalDayPnlPct)})
           </p>
         </div>
 
@@ -367,14 +393,12 @@ export default function PortfolioPage() {
                     <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [`$${value.toFixed(0)}`, "Giá trị"]} />
+                <Tooltip formatter={(value: number) => [formatVnd(Number(value)), "Giá trị"]} />
                 <Legend formatter={(value) => <span className="text-xs text-foreground">{value}</span>} />
               </RechartsPie>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[170px] flex items-center justify-center text-muted-foreground text-sm">
-              Chưa có dữ liệu
-            </div>
+            <div className="h-[170px] flex items-center justify-center text-muted-foreground text-sm">Chưa có dữ liệu</div>
           )}
         </div>
       </div>
@@ -386,9 +410,7 @@ export default function PortfolioPage() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
                 Danh sách tài sản
-                {selectedItem && (
-                  <span className="text-xs text-muted-foreground ml-1">(nhấn vào hàng để xem chi tiết)</span>
-                )}
+                {selectedItem && <span className="text-xs text-muted-foreground ml-1">(chọn mã để xem chi tiết)</span>}
               </h3>
             </div>
             {isLoading ? (
@@ -427,10 +449,7 @@ export default function PortfolioPage() {
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.quantity} ×{" "}
-                        {item.type === "stock" || item.type === "gold"
-                          ? `${new Intl.NumberFormat("vi-VN").format(Math.round(item.avgBuyPrice))}đ`
-                          : formatCurrency(item.avgBuyPrice)}
+                        {item.quantity} × {item.type === "stock" || item.type === "gold" ? formatVnd(Math.round(item.avgBuyPrice)) : formatCurrency(item.avgBuyPrice)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -440,7 +459,7 @@ export default function PortfolioPage() {
                       </span>
                       <p className={cn("text-[11px] mt-1", getChangeColor(item.dayPnl))}>
                         Hôm nay {item.dayPnl >= 0 ? "+" : "-"}
-                        {formatCurrency(Math.abs(item.dayPnl))}
+                        {formatVnd(Math.abs(item.dayPnl))}
                       </p>
                     </div>
                     <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

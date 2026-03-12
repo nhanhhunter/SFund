@@ -5,6 +5,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const NUMBER_LOCALE = "en-US";
+
+export function formatNumber(
+  value: number,
+  options: Intl.NumberFormatOptions = {},
+): string {
+  return new Intl.NumberFormat(NUMBER_LOCALE, options).format(value);
+}
+
+export function formatVnd(amount: number, fractionDigits = 0): string {
+  return `${formatNumber(amount, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })} đ`;
+}
+
 export function formatVND(amount: number): string {
   if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(2)}T`;
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
@@ -14,7 +30,7 @@ export function formatVND(amount: number): string {
 
 export function formatCurrency(amount: number, currency = "USD"): string {
   if (currency === "VND") {
-    return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(amount);
+    return formatVnd(amount);
   }
   if (currency === "compact") {
     if (amount >= 1_000_000_000_000) return `$${(amount / 1_000_000_000_000).toFixed(2)}T`;
@@ -25,13 +41,13 @@ export function formatCurrency(amount: number, currency = "USD"): string {
   }
   if (amount < 0.01) return `$${amount.toFixed(6)}`;
   if (amount < 1) return `$${amount.toFixed(4)}`;
-  if (amount > 1000) return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  if (amount > 1000) return `$${formatNumber(amount, { maximumFractionDigits: 0 })}`;
   return `$${amount.toFixed(2)}`;
 }
 
 export function formatChange(change: number, currency = "USD"): string {
   const prefix = change >= 0 ? "+" : "";
-  if (currency === "VND") return `${prefix}${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(change)}đ`;
+  if (currency === "VND") return `${prefix}${formatNumber(change, { maximumFractionDigits: 0 })} đ`;
   if (Math.abs(change) < 0.01) return `${prefix}${change.toFixed(6)}`;
   return `${prefix}${change.toFixed(2)}`;
 }
@@ -41,14 +57,14 @@ export function formatPercent(value: number): string {
 }
 
 export function formatVolume(volume: number): string {
-  if (volume >= 1_000_000) return `${(volume / 1_000_000).toFixed(1)}M`;
-  if (volume >= 1_000) return `${(volume / 1_000).toFixed(0)}K`;
-  return volume.toString();
+  return formatNumber(volume, { maximumFractionDigits: 0 });
 }
 
 export function formatTime(dateStr: string): string {
   try {
-    const normalized = dateStr.includes("T") ? dateStr : dateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, "$1-$2-$3T$4:$5:$6");
+    const normalized = dateStr.includes("T")
+      ? dateStr
+      : dateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, "$1-$2-$3T$4:$5:$6");
     const date = new Date(normalized);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -85,6 +101,11 @@ export function getSentimentColor(sentiment: string): string {
 }
 
 export function assetTypeLabel(type: string): string {
-  const labels: Record<string, string> = { stock: "Cổ phiếu", gold: "Vàng", oil: "Dầu thô", crypto: "Crypto" };
+  const labels: Record<string, string> = {
+    stock: "Cổ phiếu",
+    gold: "Vàng",
+    oil: "Dầu thô",
+    crypto: "Crypto",
+  };
   return labels[type] || type;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, fetchJson } from "@/lib/queryClient";
 import { RefreshCw, Plus, X, Search, ChevronUp, ChevronDown } from "lucide-react";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber, formatPercent, formatVnd } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
 import { useAuth } from "@/components/AuthProvider";
@@ -16,13 +16,14 @@ import { useToast } from "@/hooks/use-toast";
 const ALL_INDICES = [
   { symbol: "VNINDEX", name: "VN-Index", description: "Sàn HOSE tổng hợp" },
   { symbol: "HNXINDEX", name: "HNX-Index", description: "Sàn HNX tổng hợp" },
-  { symbol: "UPCOMINDEX", name: "UPCOM", description: "Sàn UpCOM tổng hợp" },
+  { symbol: "UPCOMINDEX", name: "UPCOM", description: "Sàn UPCOM tổng hợp" },
   { symbol: "VN30", name: "VN30", description: "30 cổ phiếu vốn hóa lớn HOSE" },
   { symbol: "HNX30", name: "HNX30", description: "30 cổ phiếu hàng đầu HNX" },
   { symbol: "VN100", name: "VN100", description: "100 cổ phiếu hàng đầu HOSE" },
 ];
 
 const DEFAULT_INDICES = ["VNINDEX", "HNXINDEX", "UPCOMINDEX", "VN30", "HNX30", "VN100"];
+const MARKET_REFRESH_INTERVAL = 180_000;
 type Period = "1" | "7" | "30";
 
 function useLocalStorage<T>(key: string, defaultValue: T) {
@@ -34,6 +35,7 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
       return defaultValue;
     }
   });
+
   const set = useCallback((v: T | ((prev: T) => T)) => {
     setValue((prev) => {
       const next = typeof v === "function" ? (v as (p: T) => T)(prev) : v;
@@ -43,6 +45,7 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
       return next;
     });
   }, [key]);
+
   return [value, set] as const;
 }
 
@@ -101,8 +104,8 @@ function IndexCard({ symbol, name, data, period, onRemove, onSelect, selected }:
         {data ? <ChangeChip value={changePercent} /> : <Skeleton className="h-4 w-14" />}
       </div>
 
-      {data ? <p className="text-xl font-bold text-foreground mb-0.5">{price.toLocaleString("vi-VN", { maximumFractionDigits: 2 })}</p> : <Skeleton className="h-7 w-24 mb-1" />}
-      {data ? <p className={cn("text-xs mb-2", up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500")}>{up ? "+" : ""}{change.toFixed(2)} điểm</p> : <div className="mb-2" />}
+      {data ? <p className="text-xl font-bold text-foreground mb-0.5">{formatNumber(price, { maximumFractionDigits: 2 })}</p> : <Skeleton className="h-7 w-24 mb-1" />}
+      {data ? <p className={cn("text-xs mb-2", up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500")}>{up ? "+" : ""}{formatNumber(change, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} điểm</p> : <div className="mb-2" />}
 
       <PriceChart type="index" symbol={symbol} days={period === "1" ? 1 : period === "7" ? 7 : 30} currentPrice={price || undefined} mini height={52} />
     </div>
@@ -136,10 +139,10 @@ function StockRow({ symbol, data, onRemove, onSelect, selected }: {
         {data && price ? <PriceChart type="stock" symbol={symbol} days={7} currentPrice={price} mini height={32} /> : null}
       </div>
 
-      <div className="text-right min-w-[80px]">
+      <div className="text-right min-w-[96px]">
         {data ? (
           <>
-            <p className="text-sm font-semibold text-foreground">{(price / 1000).toFixed(1)}K</p>
+            <p className="text-sm font-semibold text-foreground">{formatVnd(price)}</p>
             <ChangeChip value={changePercent} />
           </>
         ) : <Skeleton className="h-8 w-16" />}
@@ -240,11 +243,8 @@ function AddStockInput({ existing, onAdd }: { existing: string[]; onAdd: (symbol
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-foreground">{r.symbol}</span>
                 {r.exchange && <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", EX_BADGE[r.exchange] || "bg-muted text-muted-foreground")}>{r.exchange}</span>}
-                {existing.includes(r.symbol) && <span className="text-xs text-muted-foreground ml-auto">Đã thêm</span>}
               </div>
-              <p className="text-xs text-muted-foreground truncate">
-                {r.name.includes(" - ") ? r.name.split(" - ").slice(1).join(" - ") : r.name}
-              </p>
+              <p className="text-xs text-muted-foreground truncate">{r.name}</p>
             </button>
           ))}
         </div>
@@ -253,18 +253,11 @@ function AddStockInput({ existing, onAdd }: { existing: string[]; onAdd: (symbol
   );
 }
 
-function DetailPanel({ item, type, onClose }: {
-  item: { symbol: string; name?: string; data: any };
-  type: "index" | "stock";
-  onClose: () => void;
-}) {
+function DetailPanel({ item, type, onClose }: { item: { symbol: string; name?: string; data: any }; type: "index" | "stock"; onClose: () => void; }) {
   const [localPeriod, setLocalPeriod] = useState<Period>("7");
   const price = item.data?.price ?? 0;
   const changePercent = item.data?.changePercent ?? 0;
   const change = item.data?.change ?? 0;
-  const ceiling = item.data?.ceiling;
-  const floor = item.data?.floor;
-  const refPrice = item.data?.refPrice;
   const exchange = item.data?.exchange;
   const up = changePercent >= 0;
   const displayName = item.name || item.symbol;
@@ -287,38 +280,17 @@ function DetailPanel({ item, type, onClose }: {
 
       <div className="flex items-baseline gap-3 mb-4">
         <span className="text-3xl font-bold text-foreground">
-          {type === "stock" ? `${(price / 1000).toFixed(1)}K đ` : price.toLocaleString("vi-VN", { maximumFractionDigits: 2 })}
+          {type === "stock" ? formatVnd(price) : formatNumber(price, { maximumFractionDigits: 2 })}
         </span>
         <span className={cn("text-base font-semibold", up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500")}>
-          {up ? "+" : ""}{type === "stock" ? `${(change / 1000).toFixed(1)}K` : change.toFixed(2)} ({up ? "+" : ""}{changePercent.toFixed(2)}%)
+          {up ? "+" : ""}{type === "stock" ? formatVnd(Math.abs(change)) : formatNumber(change, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({up ? "+" : ""}{changePercent.toFixed(2)}%)
         </span>
       </div>
 
-      {type === "stock" && (ceiling || floor || refPrice) ? (
-        <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
-          <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/30 rounded-lg px-2 py-1.5 text-center">
-            <p className="text-rose-600 dark:text-rose-400 font-medium">Trần</p>
-            <p className="font-bold text-rose-700 dark:text-rose-300">{((ceiling || 0) / 1000).toFixed(1)}K</p>
-          </div>
-          <div className="bg-muted/50 rounded-lg px-2 py-1.5 text-center">
-            <p className="text-muted-foreground font-medium">Tham chiếu</p>
-            <p className="font-bold text-foreground">{((refPrice || 0) / 1000).toFixed(1)}K</p>
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg px-2 py-1.5 text-center">
-            <p className="text-blue-600 dark:text-blue-400 font-medium">Sàn</p>
-            <p className="font-bold text-blue-700 dark:text-blue-300">{((floor || 0) / 1000).toFixed(1)}K</p>
-          </div>
-        </div>
-      ) : null}
-
       <div className="flex items-center gap-1 mb-3">
         {(["1", "7", "30"] as Period[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setLocalPeriod(p)}
-            className={cn("px-3 py-1 text-xs font-medium rounded-lg transition-colors", localPeriod === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}
-          >
-            {p === "1" ? "1 ngày" : p === "7" ? "7 ngày" : "30 ngày"}
+          <button key={p} onClick={() => setLocalPeriod(p)} className={cn("px-3 py-1 text-xs font-medium rounded-lg transition-colors", localPeriod === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}>
+            {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
           </button>
         ))}
       </div>
@@ -335,9 +307,10 @@ export default function StocksPage() {
   const [selectedItem, setSelectedItem] = useState<{ symbol: string; type: "index" | "stock" } | null>(null);
   const [indices, setIndices] = useLocalStorage<string[]>("vn_indices_pins", DEFAULT_INDICES);
 
-  const { data: indicesData, isLoading: loadingIndices, dataUpdatedAt } = useQuery<any>({
+  const { data: indicesData, isLoading: loadingIndices } = useQuery<any>({
     queryKey: ["/api/prices/indices"],
-    refetchInterval: 60_000,
+    queryFn: () => fetchJson("/api/prices/indices"),
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const { data: watchlistStocks = [] } = useQuery<Array<{ id: string; symbol: string; name: string }>>({
@@ -354,7 +327,7 @@ export default function StocksPage() {
     queryKey: ["/api/prices/vn-batch", pinnedSymbols.join(",")],
     queryFn: () => fetchJson(`/api/prices/vn-batch?symbols=${pinnedSymbols.join(",")}`),
     enabled: pinnedSymbols.length > 0,
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const addStockMutation = useMutation({
@@ -383,7 +356,10 @@ export default function StocksPage() {
     },
   });
 
-  const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("vi-VN") : "--";
+  const marketSource = "KBS";
+  const lastUpdate = Object.values(indicesData || {}).map((item: any) => item?.lastUpdated).filter(Boolean).sort().at(-1);
+  const lastUpdateLabel = lastUpdate ? new Date(lastUpdate).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--";
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/prices/indices"] });
     queryClient.invalidateQueries({ queryKey: ["/api/prices/vn-batch"] });
@@ -415,7 +391,7 @@ export default function StocksPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Thị trường Chứng khoán VN</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Tự động làm mới mỗi 60 giây</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Nguồn: {marketSource} • Cập nhật {lastUpdateLabel} • Tự động mới 3 phút</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
           <RefreshCw className="w-3.5 h-3.5" />
@@ -429,11 +405,7 @@ export default function StocksPage() {
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
               {(["1", "7", "30"] as Period[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={cn("px-2.5 py-1 text-xs font-medium rounded-md transition-colors", period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                >
+                <button key={p} onClick={() => setPeriod(p)} className={cn("px-2.5 py-1 text-xs font-medium rounded-md transition-colors", period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
                   {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
                 </button>
               ))}
@@ -443,9 +415,7 @@ export default function StocksPage() {
         </div>
 
         {indices.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
-            Chưa có chỉ số nào. Nhấn “Thêm chỉ số” để bắt đầu.
-          </div>
+          <div className="text-center py-12 text-muted-foreground text-sm border border-dashed border-border rounded-xl">Chưa có chỉ số nào.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {indices.map((symbol) => {
@@ -475,9 +445,7 @@ export default function StocksPage() {
 
         <div className="bg-card border border-card-border rounded-xl overflow-hidden">
           {watchlistStocks.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              Chưa có cổ phiếu nào. Tìm kiếm để thêm cổ phiếu quan tâm.
-            </div>
+            <div className="text-center py-12 text-muted-foreground text-sm">Chưa có cổ phiếu nào.</div>
           ) : (
             <div className="divide-y divide-border">
               {watchlistStocks.map(({ symbol, name }) => {
@@ -508,3 +476,4 @@ export default function StocksPage() {
     </div>
   );
 }
+

@@ -39,6 +39,15 @@ const KBS_INTERVAL_MAP: Record<string, string> = {
   monthly: "month",
 };
 
+const KBS_INDEX_SYMBOLS = new Set([
+  "VNINDEX",
+  "HNXINDEX",
+  "UPCOMINDEX",
+  "VN30",
+  "HNX30",
+  "VN100",
+]);
+
 export type VnstockBoardRow = {
   symbol: string;
   time?: string;
@@ -174,6 +183,7 @@ export async function fetchVnstockHistory(
   end: string,
   interval: string,
 ) {
+  const normalizedSymbol = symbol.toUpperCase();
   const suffix = KBS_INTERVAL_MAP[interval];
   if (!suffix) {
     throw new Error(`Unsupported KBS interval: ${interval}`);
@@ -185,7 +195,7 @@ export async function fetchVnstockHistory(
   });
 
   const payload = await fetchKbsJson<{ data_day?: KbsHistoryApiRow[]; [key: string]: KbsHistoryApiRow[] | string | undefined }>(
-    `/stocks/${symbol.toUpperCase()}/data_${suffix}?${params.toString()}`,
+    `${KBS_INDEX_SYMBOLS.has(normalizedSymbol) ? "/index" : "/stocks"}/${normalizedSymbol}/data_${suffix}?${params.toString()}`,
   );
 
   const dataKey = `data_${suffix}`;

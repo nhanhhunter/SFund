@@ -112,6 +112,10 @@ function normalizeStockHistoryPrice(value: number) {
   return value < 1000 ? value * 1000 : value;
 }
 
+function sortHistoricalRows<T extends { time: number }>(rows: T[]) {
+  return [...rows].sort((a, b) => a.time - b.time);
+}
+
 function normalizeStockExchange(exchange?: string) {
   const value = (exchange || "").trim().toUpperCase();
   if (value === "UPCOM") return "UpCOM";
@@ -580,79 +584,72 @@ async function fetchOilPrice() {
   }
 }
 
-// Fetch VN market indices via Yahoo Finance compatible symbols
 async function fetchVNIndices() {
   try {
-    const indexCandidates: Record<string, string[]> = {
-      VNINDEX: ["VNINDEX"],
-      HNXINDEX: ["HNXINDEX"],
-      UPCOMINDEX: ["UPCOMINDEX", "UPINDEX", "UPCOM"],
-      VN30: ["VN30"],
-      HNX30: ["HNX30"],
-      VN100: ["VN100"],
-    };
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - 10);
+    start.setHours(0, 0, 0, 0);
 
-    const requestedSymbols = Array.from(new Set(Object.values(indexCandidates).flat()));
+    const symbols = ["VNINDEX", "HNXINDEX", "UPCOMINDEX", "VN30", "HNX30", "VN100"] as const;
+    const histories = await Promise.all(
+      symbols.map(async (symbol) => {
+        const rows = await fetchVnstockHistory(
+          symbol,
+          formatVnstockDate(start),
+          formatVnstockDate(now),
+          "1D",
+        );
 
-    let vpsIndexData: Record<string, any> = {};
-    try {
-      vpsIndexData = await fetchVNStockPriceBatch(requestedSymbols);
-    } catch {}
+        const mapped = rows
+          .map((item) => {
+            const time = parseVnstockTime(item.time);
+            if (!time) return null;
+            return {
+              time,
+              open: Number(item.open ?? 0),
+              high: Number(item.high ?? 0),
+              low: Number(item.low ?? 0),
+              close: Number(item.close ?? 0),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-    const [vnData, hnxData] = await Promise.all([
-      fetchJson("https://stooq.com/q/l/?s=^vnindex&f=sd2t2ohlcv&h&e=json").catch(() => null),
-      fetchJson("https://stooq.com/q/l/?s=^hnxindex&f=sd2t2ohlcv&h&e=json").catch(() => null),
-    ]);
+        const sorted = sortHistoricalRows(mapped);
+        const latest = sorted[sorted.length - 1];
+        const previous = sorted[sorted.length - 2];
+        if (!latest) {
+          throw new Error(`No index data for ${symbol}`);
+        }
 
-    const vnSym = vnData?.symbols?.[0];
-    const hnxSym = hnxData?.symbols?.[0];
+        const reference = previous?.close || latest.open || latest.close || 1;
+        const change = latest.close - reference;
+        const changePercent = reference > 0 ? (change / reference) * 100 : 0;
 
-    const vnPrice = vnSym?.close ?? 1280;
-    const vnOpen = vnSym?.open ?? 1270;
-    const vnChange = vnPrice - vnOpen;
+        return [
+          symbol,
+          {
+            price: Number(latest.close.toFixed(2)),
+            change: Number(change.toFixed(2)),
+            changePercent: Number(changePercent.toFixed(2)),
+            high: Number((latest.high || latest.close).toFixed(2)),
+            low: Number((latest.low || latest.close).toFixed(2)),
+            source: "KBS",
+            lastUpdated: new Date(latest.time * 1000).toISOString(),
+          },
+        ] as const;
+      }),
+    );
 
-    const hnxPrice = hnxSym?.close ?? 225;
-    const hnxOpen = hnxSym?.open ?? 223;
-    const hnxChange = hnxPrice - hnxOpen;
-
-    const idx = (price: number, change: number, high?: number, low?: number) => ({
-      price: Math.round(price * 100) / 100,
-      change: Math.round(change * 100) / 100,
-      changePercent: Math.round((change / (price - change || 1)) * 10000) / 100,
-      high: high ?? price,
-      low: low ?? price,
-      lastUpdated: new Date().toISOString(),
-    });
-
-    const fromVps = (key: keyof typeof indexCandidates) => {
-      const match = indexCandidates[key]
-        .map((symbol) => vpsIndexData[symbol])
-        .find(Boolean);
-      if (!match) return null;
-      return idx(match.price, match.change, match.high, match.low);
-    };
-
-    const upcomFallback = idx(93.5 + (vnPrice - 1280) * 0.03, vnChange * 0.02);
-    const vn30Fallback = idx(Math.round(vnPrice * 1.12 * 100) / 100, Math.round(vnChange * 1.1 * 100) / 100);
-    const hnx30Fallback = idx(345 + (hnxPrice - 220) * 0.6, Math.round(hnxChange * 0.8 * 100) / 100);
-    const vn100Fallback = idx(Math.round(vnPrice * 1.17 * 100) / 100, Math.round(vnChange * 1.05 * 100) / 100);
-
-    return {
-      VNINDEX: fromVps("VNINDEX") || idx(vnPrice, vnChange, vnSym?.high, vnSym?.low),
-      HNXINDEX: fromVps("HNXINDEX") || idx(hnxPrice, hnxChange, hnxSym?.high, hnxSym?.low),
-      UPCOMINDEX: fromVps("UPCOMINDEX") || upcomFallback,
-      VN30: fromVps("VN30") || vn30Fallback,
-      HNX30: fromVps("HNX30") || hnx30Fallback,
-      VN100: fromVps("VN100") || vn100Fallback,
-    };
+    return Object.fromEntries(histories);
   } catch {
     return {
-      VNINDEX: { price: 1280, change: 8.5, changePercent: 0.67, high: 1285, low: 1272, lastUpdated: new Date().toISOString() },
-      HNXINDEX: { price: 225.5, change: 1.2, changePercent: 0.53, high: 227, low: 224, lastUpdated: new Date().toISOString() },
-      UPCOMINDEX: { price: 93.5, change: 0.3, changePercent: 0.32, high: 94, low: 93, lastUpdated: new Date().toISOString() },
-      VN30: { price: 1435, change: 9.2, changePercent: 0.64, high: 1441, low: 1428, lastUpdated: new Date().toISOString() },
-      HNX30: { price: 347, change: 1.8, changePercent: 0.52, high: 349, low: 345, lastUpdated: new Date().toISOString() },
-      VN100: { price: 1498, change: 9.8, changePercent: 0.66, high: 1504, low: 1490, lastUpdated: new Date().toISOString() },
+      VNINDEX: { price: 1280, change: 8.5, changePercent: 0.67, high: 1285, low: 1272, source: "KBS", lastUpdated: new Date().toISOString() },
+      HNXINDEX: { price: 225.5, change: 1.2, changePercent: 0.53, high: 227, low: 224, source: "KBS", lastUpdated: new Date().toISOString() },
+      UPCOMINDEX: { price: 93.5, change: 0.3, changePercent: 0.32, high: 94, low: 93, source: "KBS", lastUpdated: new Date().toISOString() },
+      VN30: { price: 1435, change: 9.2, changePercent: 0.64, high: 1441, low: 1428, source: "KBS", lastUpdated: new Date().toISOString() },
+      HNX30: { price: 347, change: 1.8, changePercent: 0.52, high: 349, low: 345, source: "KBS", lastUpdated: new Date().toISOString() },
+      VN100: { price: 1498, change: 9.8, changePercent: 0.66, high: 1504, low: 1490, source: "KBS", lastUpdated: new Date().toISOString() },
     };
   }
 }
@@ -1201,7 +1198,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           })
           .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-        return res.json(mapped);
+        return res.json(sortHistoricalRows(mapped));
+      }
+
+      if (type === "index") {
+        const now = new Date();
+        const start = new Date(now);
+        let interval = "1D";
+
+        if (days <= 1) {
+          start.setHours(9, 0, 0, 0);
+          interval = "5m";
+        } else {
+          start.setDate(start.getDate() - Math.max(days, 2));
+          start.setHours(0, 0, 0, 0);
+        }
+
+        const history = await fetchVnstockHistory(
+          symbol.toUpperCase(),
+          formatVnstockDate(start, days <= 1),
+          formatVnstockDate(now, days <= 1),
+          interval,
+        );
+
+        const mapped = history
+          .map((item) => {
+            const time = parseVnstockTime(item.time);
+            if (!time) return null;
+
+            return {
+              time,
+              open: Number(item.open ?? 0),
+              high: Number(item.high ?? 0),
+              low: Number(item.low ?? 0),
+              close: Number(item.close ?? 0),
+              volume: Number(item.volume ?? 0),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+        return res.json(sortHistoricalRows(mapped));
       }
 
       if (type === "gold") {
