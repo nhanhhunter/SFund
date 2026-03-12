@@ -10,7 +10,10 @@ import {
   setDoc,
 } from "firebase/firestore";
 import {
+  defaultPortfolioCurrency,
+  type PortfolioDividend,
   type InsertPortfolioItem,
+  type PortfolioPurchase,
   type InsertWatchlistItem,
   type PortfolioItem,
   type WatchlistItem,
@@ -77,12 +80,42 @@ async function deleteCollectionDocuments(pathCollection: ReturnType<typeof colle
   await Promise.all(snapshot.docs.map((item) => deleteDoc(item.ref)));
 }
 
+function normalizePortfolioItem(data: Partial<PortfolioItem>, fallbackId: string): PortfolioItem {
+  const addedAt = data.addedAt || new Date().toISOString();
+  const currency = data.currency || defaultPortfolioCurrency(data.type || "stock");
+  const purchaseLots = Array.isArray(data.purchaseLots) && data.purchaseLots.length > 0
+    ? (data.purchaseLots as PortfolioPurchase[])
+    : [{
+        quantity: Number(data.quantity) || 0,
+        price: Number(data.avgBuyPrice) || 0,
+        boughtAt: addedAt,
+      }];
+  const dividends = Array.isArray(data.dividends) ? (data.dividends as PortfolioDividend[]) : [];
+  const quantity = purchaseLots.reduce((sum, lot) => sum + (Number(lot.quantity) || 0), 0);
+  const totalCost = purchaseLots.reduce(
+    (sum, lot) => sum + (Number(lot.quantity) || 0) * (Number(lot.price) || 0),
+    0,
+  );
+  const avgBuyPrice = quantity > 0 ? totalCost / quantity : Number(data.avgBuyPrice) || 0;
+
+  return {
+    ...data,
+    id: data.id || fallbackId,
+    addedAt,
+    currency,
+    purchaseLots,
+    dividends,
+    quantity,
+    avgBuyPrice,
+  } as PortfolioItem;
+}
+
 export async function listPortfolioItems(userId: string): Promise<PortfolioItem[]> {
   const snapshot = await getDocs(
     query(portfolioCollection(userId), orderBy("addedAt", "desc")),
   );
 
-  return snapshot.docs.map((item) => item.data() as PortfolioItem);
+  return snapshot.docs.map((item) => normalizePortfolioItem(item.data() as Partial<PortfolioItem>, item.id));
 }
 
 export async function addPortfolioItem(
@@ -90,11 +123,11 @@ export async function addPortfolioItem(
   item: InsertPortfolioItem,
 ): Promise<PortfolioItem> {
   const docRef = doc(portfolioCollection(userId));
-  const created: PortfolioItem = {
+  const created = normalizePortfolioItem({
     ...item,
     id: docRef.id,
     addedAt: new Date().toISOString(),
-  };
+  }, docRef.id);
 
   await setDoc(docRef, created);
   return created;
@@ -105,11 +138,11 @@ export async function updatePortfolioItem(
   id: string,
   item: InsertPortfolioItem,
 ): Promise<PortfolioItem> {
-  const updated: PortfolioItem = {
+  const updated = normalizePortfolioItem({
     ...item,
     id,
     addedAt: new Date().toISOString(),
-  };
+  }, id);
 
   await setDoc(doc(portfolioCollection(userId), id), updated, { merge: true });
   return updated;

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Search, X } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import {
   CRYPTO_LIST,
+  defaultPortfolioCurrency,
   insertPortfolioItemSchema,
   type InsertPortfolioItem,
   type PortfolioItem,
@@ -30,9 +31,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = insertPortfolioItemSchema.extend({
-  quantity: z.coerce.number().positive("Phải lớn hơn 0"),
-  avgBuyPrice: z.coerce.number().positive("Phải lớn hơn 0"),
+  quantity: z.coerce.number().nonnegative(),
+  avgBuyPrice: z.coerce.number().nonnegative(),
+  purchaseLots: z.array(z.object({
+    quantity: z.coerce.number().positive("Phải lớn hơn 0"),
+    price: z.coerce.number().positive("Phải lớn hơn 0"),
+    boughtAt: z.string().min(1, "Chọn thời gian mua"),
+  })).min(1, "Cần ít nhất 1 lần mua"),
+  dividends: z.array(z.object({
+    amount: z.coerce.number().positive("Phải lớn hơn 0"),
+    receivedAt: z.string().min(1, "Chọn ngày nhận"),
+  })).default([]),
 });
+
+function toDateTimeLocal(value?: string) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function buildPurchaseLot(quantity = 0, price = 0, boughtAt?: string) {
+  return {
+    quantity,
+    price,
+    boughtAt: toDateTimeLocal(boughtAt),
+  };
+}
+
+function buildDividend(amount = 0, receivedAt?: string) {
+  return {
+    amount,
+    receivedAt: toDateTimeLocal(receivedAt),
+  };
+}
 
 interface Props {
   open: boolean;
@@ -166,6 +198,9 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
       symbol: "",
       name: "",
       type: "stock",
+      currency: defaultPortfolioCurrency("stock"),
+      purchaseLots: [buildPurchaseLot()],
+      dividends: [],
       quantity: 0,
       avgBuyPrice: 0,
       notes: "",
@@ -174,7 +209,11 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
 
   useEffect(() => {
     if (editItem) {
-      form.reset(editItem);
+      form.reset({
+        ...editItem,
+        purchaseLots: editItem.purchaseLots.map((lot) => buildPurchaseLot(lot.quantity, lot.price, lot.boughtAt)),
+        dividends: editItem.dividends.map((dividend) => buildDividend(dividend.amount, dividend.receivedAt)),
+      });
       return;
     }
 
@@ -182,6 +221,9 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
       symbol: "",
       name: "",
       type: "stock",
+      currency: defaultPortfolioCurrency("stock"),
+      purchaseLots: [buildPurchaseLot()],
+      dividends: [],
       quantity: 0,
       avgBuyPrice: 0,
       notes: "",
@@ -189,15 +231,49 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
   }, [editItem, form, open]);
 
   const assetType = form.watch("type");
+  const assetCurrency = form.watch("currency");
+  const purchaseLots = form.watch("purchaseLots");
+  const dividends = form.watch("dividends");
+  const { fields: purchaseFields, append: appendPurchase, remove: removePurchase } = useFieldArray({
+    control: form.control,
+    name: "purchaseLots",
+  });
+  const { fields: dividendFields, append: appendDividend, remove: removeDividend } = useFieldArray({
+    control: form.control,
+    name: "dividends",
+  });
+
+  useEffect(() => {
+    const totalQuantity = (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0);
+    const totalCost = (purchaseLots || []).reduce(
+      (sum, lot) => sum + (Number(lot?.quantity) || 0) * (Number(lot?.price) || 0),
+      0,
+    );
+    const avgBuyPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+
+    form.setValue("quantity", totalQuantity, { shouldValidate: false, shouldDirty: false });
+    form.setValue("avgBuyPrice", avgBuyPrice, { shouldValidate: false, shouldDirty: false });
+  }, [form, purchaseLots]);
 
   const mutation = useMutation({
     mutationFn: async (data: InsertPortfolioItem) => {
       if (!user) throw new Error("Bạn cần đăng nhập để lưu danh mục.");
+      const normalized: InsertPortfolioItem = {
+        ...data,
+        purchaseLots: data.purchaseLots.map((lot) => ({
+          ...lot,
+          boughtAt: new Date(lot.boughtAt).toISOString(),
+        })),
+        dividends: data.dividends.map((dividend) => ({
+          ...dividend,
+          receivedAt: new Date(dividend.receivedAt).toISOString(),
+        })),
+      };
       if (isEdit && editItem) {
-        return updatePortfolioItem(user.uid, editItem.id, data);
+        return updatePortfolioItem(user.uid, editItem.id, normalized);
       }
 
-      return addPortfolioItem(user.uid, data);
+      return addPortfolioItem(user.uid, normalized);
     },
     onSuccess: () => {
       if (user) {
@@ -213,9 +289,14 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
   });
 
   const onTypeChange = (value: string) => {
-    form.setValue("type", value as InsertPortfolioItem["type"]);
+    const nextType = value as InsertPortfolioItem["type"];
+    form.setValue("type", nextType);
+    form.setValue("currency", defaultPortfolioCurrency(nextType));
     form.setValue("symbol", "");
     form.setValue("name", "");
+    if (nextType !== "stock") {
+      form.setValue("dividends", []);
+    }
   };
 
   const onSymbolChange = (value: string) => {
@@ -225,7 +306,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
       const crypto = CRYPTO_LIST.find((c) => c.symbol === value);
       if (crypto) form.setValue("name", crypto.name);
     } else if (assetType === "gold") {
-      form.setValue("name", "Vàng 24K");
+      form.setValue("name", value === "XAU_SJC" ? "Vàng SJC" : "Vàng 24K");
     } else if (assetType === "oil") {
       form.setValue("name", value === "BRENT" ? "Dầu Brent" : "Dầu WTI");
     }
@@ -233,7 +314,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Chỉnh sửa tài sản" : "Thêm tài sản vào danh mục"}
@@ -343,31 +424,179 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
-                name="quantity"
+                name="currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Số lượng</FormLabel>
-                    <FormControl>
-                      <Input data-testid="input-quantity" type="number" step="any" placeholder="0" {...field} />
-                    </FormControl>
+                    <FormLabel>Đơn vị giá</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-currency">
+                          <SelectValue placeholder="Chọn đơn vị" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="VND">đ</SelectItem>
+                        <SelectItem value="USD">$</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="avgBuyPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Giá mua TB</FormLabel>
-                    <FormControl>
-                      <Input data-testid="input-price" type="number" step="any" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="rounded-xl border border-card-border bg-muted/30 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Tổng hợp tự động</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {(purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0)} đơn vị
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Giá mua TB {assetCurrency === "USD" ? "$" : "đ"}{" "}
+                  {(
+                    (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0) * (Number(lot?.price) || 0), 0) /
+                    Math.max(1, (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0))
+                  ).toLocaleString("vi-VN", { maximumFractionDigits: assetCurrency === "USD" ? 2 : 0 })}
+                </p>
+              </div>
             </div>
+
+            <div className="space-y-3 rounded-xl border border-card-border p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Các lần mua</p>
+                  <p className="text-xs text-muted-foreground">Hệ thống tự tính số lượng tổng và giá mua trung bình.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => appendPurchase(buildPurchaseLot())}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Thêm lần mua
+                </Button>
+              </div>
+
+              {purchaseFields.map((field, index) => (
+                <div key={field.id} className="grid grid-cols-[1fr_1fr_1.4fr_auto] gap-2">
+                  <FormField
+                    control={form.control}
+                    name={`purchaseLots.${index}.quantity`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Số lượng</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="any" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`purchaseLots.${index}.price`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Giá ({assetCurrency === "USD" ? "$" : "đ"})</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="any" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`purchaseLots.${index}.boughtAt`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Thời gian mua</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={purchaseFields.length === 1}
+                      onClick={() => removePurchase(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {assetType === "stock" && (
+              <div className="space-y-3 rounded-xl border border-card-border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Cổ tức đã nhận</p>
+                    <p className="text-xs text-muted-foreground">Khoản này sẽ được cộng vào ROI của cổ phiếu.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => appendDividend(buildDividend())}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Thêm cổ tức
+                  </Button>
+                </div>
+
+                {!dividendFields.length && (
+                  <p className="text-xs text-muted-foreground">Chưa có khoản cổ tức nào.</p>
+                )}
+
+                {dividendFields.map((field, index) => (
+                  <div key={field.id} className="grid grid-cols-[1fr_1.3fr_auto] gap-2">
+                    <FormField
+                      control={form.control}
+                      name={`dividends.${index}.amount`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Số cổ tức ({assetCurrency === "USD" ? "$" : "đ"})</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="any" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`dividends.${index}.receivedAt`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Ngày nhận</FormLabel>
+                          <FormControl>
+                            <Input type="datetime-local" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeDividend(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <FormField
               control={form.control}

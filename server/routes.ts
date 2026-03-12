@@ -61,7 +61,8 @@ function fetchText(url: string, headers: Record<string, string> = {}): Promise<s
 
 const priceCache: Map<string, { data: any; ts: number }> = new Map();
 const newsCache: Map<string, { data: any; ts: number }> = new Map();
-const PRICE_TTL = 60_000;
+const PRICE_TTL = 180_000;
+const FX_TTL = 86_400_000;
 const LISTING_TTL = 6 * 60 * 60 * 1000;
 const GOLD_HISTORY_TTL = 300_000;
 const NEWS_TTL = 300_000;
@@ -332,6 +333,15 @@ async function fetchVietcombankRate(): Promise<number> {
   return 26315;
 }
 
+async function fetchUsdToVndRate() {
+  const rate = await fetchVietcombankRate();
+  return {
+    rate: Math.round(rate),
+    source: "Vietcombank",
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
 async function fetchVietnamGoldPrices() {
   const response = await fetchJson("https://www.vang.today/api/prices?action=current");
   const rows = Array.isArray(response?.data) ? response.data : [];
@@ -484,15 +494,16 @@ async function fetchGoldHistoricalSeries(symbol: string, days: number) {
 
 async function fetchGoldPrice() {
   try {
-    const [currentGold, usdToVnd, vnGold] = await Promise.all([
+    const [currentGold, usdToVndData, vnGold] = await Promise.all([
       fetchVangTodayCurrentPrices(),
-      fetchVietcombankRate(),
+      cached(priceCache, "fx_usd_vnd", FX_TTL, fetchUsdToVndRate),
       fetchVietnamGoldPrices(),
     ]);
     const rows = Array.isArray(currentGold?.data) ? currentGold.data : [];
     const xau = rows.find((item: any) => item?.type_code === "XAUUSD");
     const goldUsdPerOz = Number(xau?.buy) || 0;
     if (!goldUsdPerOz) throw new Error("No gold price");
+    const usdToVnd = usdToVndData.rate;
     // 1 lượng = 37.5g, 1 troy oz = 31.1035g → 1 lượng = 1.2057 troy oz
     const goldVndPerLuong = goldUsdPerOz * (37.5 / 31.1035) * usdToVnd;
     const worldChangeUsd = Number(xau?.change_buy) || 0;
@@ -504,10 +515,12 @@ async function fetchGoldPrice() {
       XAU: {
         priceUsdOz: Math.round(goldUsdPerOz * 100) / 100,
         priceVndLuong: Math.round(goldVndPerLuong),
+        changeUsdOz: Math.round(worldChangeUsd * 100) / 100,
         change: Math.round(change24h),
         changePercent: Math.round(changePercent * 100) / 100,
         usdToVnd: Math.round(usdToVnd),
-        usdToVndSource: "Vietcombank",
+        usdToVndSource: usdToVndData.source,
+        usdToVndUpdatedAt: usdToVndData.lastUpdated,
         currency: "VND",
         source: "vang.today",
         lastUpdated: toIsoTime(xau?.update_time ?? currentGold?.current_time),
@@ -519,10 +532,12 @@ async function fetchGoldPrice() {
       XAU: {
         priceUsdOz: 2900,
         priceVndLuong: 86000000,
+        changeUsdOz: 18.5,
         change: 500000,
         changePercent: 0.58,
         usdToVnd: 26315,
         usdToVndSource: "Vietcombank",
+        usdToVndUpdatedAt: new Date().toISOString(),
         currency: "VND",
         lastUpdated: new Date().toISOString(),
       },
@@ -1020,6 +1035,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/exchange-rates/usd-vnd", async (_req, res) => {
+    try {
+      const data = await cached(priceCache, "fx_usd_vnd", FX_TTL, fetchUsdToVndRate);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/prices/oil", async (req, res) => {
     try {
       const data = await cached(priceCache, "oil", PRICE_TTL, fetchOilPrice);
@@ -1313,5 +1337,4 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   return httpServer;
 }
-
 

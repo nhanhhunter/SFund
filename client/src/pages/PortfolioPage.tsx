@@ -4,6 +4,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Info,
   TrendingUp,
   TrendingDown,
   BarChart3,
@@ -13,7 +14,13 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import type { PortfolioItem } from "@shared/schema";
+import {
+  defaultPortfolioCurrency,
+  type AssetCurrency,
+  type PortfolioItem,
+  type PortfolioPurchase,
+  type PortfolioDividend,
+} from "@shared/schema";
 import { queryClient, fetchJson } from "@/lib/queryClient";
 import { deletePortfolioItem, listPortfolioItems } from "@/lib/user-data";
 import {
@@ -43,6 +50,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const PIE_COLORS = ["#1A73E8", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4"];
 const MARKET_REFRESH_INTERVAL = 180_000;
@@ -50,16 +58,128 @@ const MARKET_REFRESH_INTERVAL = 180_000;
 type Period = "1" | "7" | "30";
 
 type EnrichedItem = PortfolioItem & {
+  marketCurrency: AssetCurrency;
   currentPrice: number;
+  currentPriceVnd: number;
   costBasis: number;
+  costBasisVnd: number;
   currentValue: number;
-  pnl: number;
+  currentValueVnd: number;
+  pricePnl: number;
+  pricePnlVnd: number;
+  dividendsTotal: number;
+  dividendsTotalVnd: number;
+  totalReturn: number;
+  totalReturnVnd: number;
   pnlPercent: number;
   dayPnl: number;
+  dayPnlVnd: number;
   dayPnlPercent: number;
 };
 
-function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () => void }) {
+function convertPrice(value: number, from: AssetCurrency, to: AssetCurrency, usdToVnd: number) {
+  if (!Number.isFinite(value)) return 0;
+  if (from === to) return value;
+  if (from === "USD" && to === "VND") return value * usdToVnd;
+  if (from === "VND" && to === "USD") return usdToVnd > 0 ? value / usdToVnd : 0;
+  return value;
+}
+
+function formatMoney(value: number, currency: AssetCurrency) {
+  return currency === "VND" ? formatVnd(Math.round(value)) : formatCurrency(value);
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function AssetHistoryDialog({
+  item,
+  open,
+  onOpenChange,
+}: {
+  item: EnrichedItem | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Lịch sử giao dịch {item?.symbol?.toUpperCase() || ""}</DialogTitle>
+        </DialogHeader>
+
+        {!item ? null : (
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Các lần mua</p>
+              <div className="mt-2 space-y-2">
+                {item.purchaseLots.map((lot: PortfolioPurchase, index: number) => (
+                  <div key={`${lot.boughtAt}-${index}`} className="grid grid-cols-3 gap-2 rounded-lg border border-card-border p-3 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Số lượng</p>
+                      <p className="font-medium text-foreground">{lot.quantity}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Giá mua</p>
+                      <p className="font-medium text-foreground">{formatMoney(lot.price, item.currency)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Thời gian mua</p>
+                      <p className="font-medium text-foreground">{formatDateTime(lot.boughtAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {item.type === "stock" && (
+              <div>
+                <p className="text-sm font-semibold text-foreground">Cổ tức đã nhận</p>
+                <div className="mt-2 space-y-2">
+                  {item.dividends.length ? (
+                    item.dividends.map((dividend: PortfolioDividend, index: number) => (
+                      <div key={`${dividend.receivedAt}-${index}`} className="grid grid-cols-2 gap-2 rounded-lg border border-card-border p-3 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Giá trị</p>
+                          <p className="font-medium text-foreground">{formatMoney(dividend.amount, item.currency)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Ngày nhận</p>
+                          <p className="font-medium text-foreground">{formatDateTime(dividend.receivedAt)}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Chưa có khoản cổ tức nào.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AssetDetailPanel({
+  item,
+  onClose,
+  onShowHistory,
+}: {
+  item: EnrichedItem;
+  onClose: () => void;
+  onShowHistory: () => void;
+}) {
   const [period, setPeriod] = useState<Period>("7");
   const days = period === "1" ? 1 : period === "7" ? 7 : 30;
 
@@ -68,11 +188,7 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
   const chartSymbol = item.type === "gold" ? "XAU" : item.symbol;
 
   const formatAssetPrice = (value: number) => {
-    if (item.type === "stock" || item.type === "gold") {
-      return formatVnd(Math.round(value));
-    }
-
-    return formatCurrency(value);
+    return formatMoney(value, item.currency);
   };
 
   return (
@@ -87,9 +203,14 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
             <p className="text-xs text-muted-foreground truncate max-w-[180px]">{item.name}</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={onShowHistory} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+            <Info className="w-4 h-4" />
+          </button>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="px-4 py-3 grid grid-cols-2 gap-3 border-b border-card-border">
@@ -115,9 +236,9 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
         </div>
         <div>
           <p className="text-xs text-muted-foreground mb-0.5">Lãi/Lỗ</p>
-          <p className={cn("font-bold text-sm", getChangeColor(item.pnl))}>
-            {item.pnl >= 0 ? "+" : ""}
-            {formatAssetPrice(Math.abs(item.pnl))} ({formatPercent(item.pnlPercent)})
+          <p className={cn("font-bold text-sm", getChangeColor(item.totalReturn))}>
+            {item.totalReturn >= 0 ? "+" : ""}
+            {formatAssetPrice(Math.abs(item.totalReturn))} ({formatPercent(item.pnlPercent)})
           </p>
         </div>
       </div>
@@ -128,6 +249,17 @@ function AssetDetailPanel({ item, onClose }: { item: EnrichedItem; onClose: () =
           {formatPercent(item.pnlPercent)}
         </span>
       </div>
+      {(item.notes || (item.type === "stock" && item.dividendsTotal > 0)) && (
+        <div className="px-4 py-3 border-b border-card-border text-xs">
+          <p className="font-semibold text-foreground">Ghi chú</p>
+          <p className="mt-1 text-muted-foreground">{item.notes || "Chưa có ghi chú."}</p>
+          {item.type === "stock" && item.dividendsTotal > 0 && (
+            <p className="mt-2 text-muted-foreground">
+              Gồm {formatAssetPrice(item.dividendsTotal)} cổ tức, tương ứng {formatPercent(item.costBasis > 0 ? (item.dividendsTotal / item.costBasis) * 100 : 0)}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="px-4 py-3">
         <div className="flex items-center justify-between mb-3">
@@ -167,6 +299,7 @@ export default function PortfolioPage() {
   const [editItem, setEditItem] = useState<PortfolioItem | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   const { data: portfolio, isLoading } = useQuery<PortfolioItem[]>({
     queryKey: ["portfolio", user?.uid],
@@ -190,6 +323,10 @@ export default function PortfolioPage() {
   const { data: oilData } = useQuery<any>({
     queryKey: ["/api/prices/oil"],
     refetchInterval: MARKET_REFRESH_INTERVAL,
+  });
+
+  const { data: usdVndData } = useQuery<{ rate: number }>({
+    queryKey: ["/api/exchange-rates/usd-vnd"],
   });
 
   const stockSymbols = useMemo(
@@ -221,49 +358,108 @@ export default function PortfolioPage() {
     },
   });
 
+  const usdToVnd = usdVndData?.rate || goldData?.XAU?.usdToVnd || 26315;
+
   const enriched: EnrichedItem[] = useMemo(() => {
-    const getCurrentPrice = (item: PortfolioItem): number => {
-      if (item.type === "crypto") return cryptoPrices?.[item.symbol]?.usd || 0;
-      if (item.type === "gold") return goldData?.XAU?.priceVndLuong || item.avgBuyPrice;
-      if (item.type === "oil") return (item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI)?.price || item.avgBuyPrice;
-      if (item.type === "stock") return vnStockPrices?.[item.symbol]?.price || item.avgBuyPrice;
-      return item.avgBuyPrice;
+    const getMarketPrice = (item: PortfolioItem): { price: number; currency: AssetCurrency } => {
+      if (item.type === "crypto") {
+        return { price: cryptoPrices?.[item.symbol]?.usd || 0, currency: "USD" };
+      }
+      if (item.type === "gold") {
+        if (item.symbol === "XAU_SJC") {
+          return { price: goldData?.SJC?.sell || 0, currency: "VND" };
+        }
+        return { price: goldData?.XAU?.priceVndLuong || 0, currency: "VND" };
+      }
+      if (item.type === "oil") {
+        return { price: (item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI)?.price || 0, currency: "USD" };
+      }
+      if (item.type === "stock") {
+        return { price: vnStockPrices?.[item.symbol]?.price || 0, currency: "VND" };
+      }
+      return { price: item.avgBuyPrice, currency: item.currency };
+    };
+
+    const getDailyChange = (item: PortfolioItem): { change: number; currency: AssetCurrency } => {
+      if (item.type === "stock") {
+        return { change: (vnStockPrices?.[item.symbol]?.change as number) || 0, currency: "VND" };
+      }
+      if (item.type === "crypto") {
+        const price = cryptoPrices?.[item.symbol]?.usd || 0;
+        const percent = (cryptoPrices?.[item.symbol]?.usd_24h_change as number) || 0;
+        return { change: price * (percent / 100), currency: "USD" };
+      }
+      if (item.type === "gold") {
+        if (item.symbol === "XAU_SJC") {
+          return { change: 0, currency: "VND" };
+        }
+        return { change: (goldData?.XAU?.change as number) || 0, currency: "VND" };
+      }
+      if (item.type === "oil") {
+        const oilEntry = item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI;
+        return { change: (oilEntry?.change as number) || 0, currency: "USD" };
+      }
+      return { change: 0, currency: item.currency };
     };
 
     return (portfolio || []).map((item) => {
-      const currentPrice = getCurrentPrice(item);
+      const currency = item.currency || defaultPortfolioCurrency(item.type);
+      const market = getMarketPrice(item);
+      const fallbackMarketPrice = convertPrice(item.avgBuyPrice, currency, market.currency, usdToVnd);
+      const effectiveMarketPrice = market.price || fallbackMarketPrice;
+      const currentPrice = convertPrice(effectiveMarketPrice, market.currency, currency, usdToVnd);
+      const currentPriceVnd = convertPrice(currentPrice, currency, "VND", usdToVnd);
       const costBasis = item.quantity * item.avgBuyPrice;
+      const costBasisVnd = convertPrice(costBasis, currency, "VND", usdToVnd);
       const currentValue = item.quantity * currentPrice;
-      const pnl = currentValue - costBasis;
-      const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
-      const getDailyChange = () => {
-        if (item.type === "stock") return (vnStockPrices?.[item.symbol]?.change as number) || 0;
-        if (item.type === "crypto") {
-          const percent = (cryptoPrices?.[item.symbol]?.usd_24h_change as number) || 0;
-          return currentPrice * (percent / 100);
-        }
-        if (item.type === "gold") return (goldData?.XAU?.change as number) || 0;
-        if (item.type === "oil") {
-          const oilEntry = item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI;
-          return (oilEntry?.change as number) || 0;
-        }
-        return 0;
-      };
-
-      const dayChangePerUnit = getDailyChange();
+      const currentValueVnd = convertPrice(currentValue, currency, "VND", usdToVnd);
+      const pricePnl = currentValue - costBasis;
+      const pricePnlVnd = currentValueVnd - costBasisVnd;
+      const dividendsTotal = (item.dividends || []).reduce(
+        (sum, dividend) => sum + (Number(dividend.amount) || 0),
+        0,
+      );
+      const dividendsTotalVnd = convertPrice(dividendsTotal, currency, "VND", usdToVnd);
+      const totalReturn = pricePnl + dividendsTotal;
+      const totalReturnVnd = pricePnlVnd + dividendsTotalVnd;
+      const pnlPercent = costBasis > 0 ? (totalReturn / costBasis) * 100 : 0;
+      const daily = getDailyChange(item);
+      const dayChangePerUnit = convertPrice(daily.change, daily.currency, currency, usdToVnd);
       const dayPnl = item.quantity * dayChangePerUnit;
+      const dayPnlVnd = convertPrice(dayPnl, currency, "VND", usdToVnd);
       const previousValue = currentValue - dayPnl;
       const dayPnlPercent = previousValue !== 0 ? (dayPnl / previousValue) * 100 : 0;
 
-      return { ...item, currentPrice, costBasis, currentValue, pnl, pnlPercent, dayPnl, dayPnlPercent };
+      return {
+        ...item,
+        currency,
+        marketCurrency: market.currency,
+        currentPrice,
+        currentPriceVnd,
+        costBasis,
+        costBasisVnd,
+        currentValue,
+        currentValueVnd,
+        pricePnl,
+        pricePnlVnd,
+        dividendsTotal,
+        dividendsTotalVnd,
+        totalReturn,
+        totalReturnVnd,
+        pnlPercent,
+        dayPnl,
+        dayPnlVnd,
+        dayPnlPercent,
+      };
     });
-  }, [portfolio, cryptoPrices, goldData, oilData, vnStockPrices]);
+  }, [portfolio, cryptoPrices, goldData, oilData, usdToVnd, vnStockPrices]);
 
-  const totalValue = enriched.reduce((sum, item) => sum + item.currentValue, 0);
-  const totalCost = enriched.reduce((sum, item) => sum + item.costBasis, 0);
-  const totalPnl = totalValue - totalCost;
+  const totalValue = enriched.reduce((sum, item) => sum + item.currentValueVnd, 0);
+  const totalCost = enriched.reduce((sum, item) => sum + item.costBasisVnd, 0);
+  const totalDividends = enriched.reduce((sum, item) => sum + item.dividendsTotalVnd, 0);
+  const totalPnl = totalValue - totalCost + totalDividends;
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-  const totalDayPnl = enriched.reduce((sum, item) => sum + item.dayPnl, 0);
+  const totalDayPnl = enriched.reduce((sum, item) => sum + item.dayPnlVnd, 0);
   const totalPreviousValue = totalValue - totalDayPnl;
   const totalDayPnlPct = totalPreviousValue !== 0 ? (totalDayPnl / totalPreviousValue) * 100 : 0;
   const stockLastUpdated = Object.values(vnStockPrices || {})
@@ -277,7 +473,7 @@ export default function PortfolioPage() {
 
   const byType = useMemo(() => {
     const groups: Record<string, number> = {};
-    for (const item of enriched) groups[item.type] = (groups[item.type] || 0) + item.currentValue;
+    for (const item of enriched) groups[item.type] = (groups[item.type] || 0) + item.currentValueVnd;
     return Object.entries(groups).map(([name, value]) => ({
       name: assetTypeLabel(name),
       value: Math.round(value),
@@ -285,14 +481,11 @@ export default function PortfolioPage() {
   }, [enriched]);
 
   const formatValue = (item: EnrichedItem) => {
-    if (item.type === "stock" || item.type === "gold") {
-      return formatVnd(Math.round(item.currentValue));
-    }
-
-    return formatCurrency(item.currentValue);
+    return formatMoney(item.currentValue, item.currency);
   };
 
   const selectedItem = selectedId ? enriched.find((item) => item.id === selectedId) || null : null;
+  const historyItem = historyId ? enriched.find((item) => item.id === historyId) || null : null;
   const relatedNewsEndpoint = selectedItem
     ? selectedItem.type === "stock"
       ? `/api/news/stocks?tickers=${selectedItem.symbol}`
@@ -336,7 +529,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Danh mục đầu tư</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {portfolio?.length || 0} tài sản • Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Tự động mới 3 phút
+            {portfolio?.length || 0} tài sản • Nguồn: KBS • Cập nhật {stockUpdatedLabel} • USD/VND {usdToVnd.toLocaleString("vi-VN")} • Tự động mới 3 phút
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -366,12 +559,22 @@ export default function PortfolioPage() {
             Hôm nay: {totalDayPnl >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalDayPnl))} ({formatPercent(totalDayPnlPct)})
           </p>
+          {totalDividends > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Gồm {formatVnd(totalDividends)} cổ tức
+            </p>
+          )}
         </div>
 
         <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-2">
           <p className="text-xs text-muted-foreground mb-1">Lãi/Lỗ</p>
           <p className={cn("text-xl font-bold", getChangeColor(totalPnl))}>{formatPercent(totalPnlPct)}</p>
           <p className="text-xs text-muted-foreground mt-1">Tổng ROI</p>
+          {totalDividends > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Gồm {formatVnd(totalDividends)} cổ tức
+            </p>
+          )}
         </div>
 
         <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-2">
@@ -446,10 +649,13 @@ export default function PortfolioPage() {
                         <span className="text-xs px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
                           {assetTypeLabel(item.type)}
                         </span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
+                          {item.currency === "USD" ? "$" : "đ"}
+                        </span>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.quantity} × {item.type === "stock" || item.type === "gold" ? formatVnd(Math.round(item.avgBuyPrice)) : formatCurrency(item.avgBuyPrice)}
+                        {item.quantity} × {formatMoney(item.avgBuyPrice, item.currency)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -459,10 +665,22 @@ export default function PortfolioPage() {
                       </span>
                       <p className={cn("text-[11px] mt-1", getChangeColor(item.dayPnl))}>
                         Hôm nay {item.dayPnl >= 0 ? "+" : "-"}
-                        {formatVnd(Math.abs(item.dayPnl))}
+                        {formatMoney(Math.abs(item.dayPnl), item.currency)}
                       </p>
                     </div>
                     <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        data-testid={`button-history-${item.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistoryId(item.id);
+                        }}
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -501,7 +719,11 @@ export default function PortfolioPage() {
 
         <div className="lg:col-span-1">
           {selectedItem ? (
-            <AssetDetailPanel item={selectedItem} onClose={() => setSelectedId(null)} />
+            <AssetDetailPanel
+              item={selectedItem}
+              onClose={() => setSelectedId(null)}
+              onShowHistory={() => setHistoryId(selectedItem.id)}
+            />
           ) : enriched.length > 0 ? (
             <div className="bg-card border border-card-border rounded-xl p-4">
               <h3 className="text-sm font-semibold mb-3">Hiệu suất tốt nhất</h3>
@@ -533,6 +755,13 @@ export default function PortfolioPage() {
           if (!value) setEditItem(undefined);
         }}
         editItem={editItem}
+      />
+      <AssetHistoryDialog
+        item={historyItem}
+        open={!!historyItem}
+        onOpenChange={(value) => {
+          if (!value) setHistoryId(null);
+        }}
       />
 
       <AlertDialog

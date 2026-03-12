@@ -12,6 +12,7 @@ import { queryClient } from "@/lib/queryClient";
 type Period = "1" | "7" | "30";
 type GoldType = "sjc" | "nhan";
 const FIXED_LUONG_PER_OUNCE = 1.205652996;
+const MARKET_REFRESH_INTERVAL = 180_000;
 
 const DEFAULT_SETTINGS = {
   shippingPerOz: 0.5,
@@ -89,7 +90,7 @@ function SettingsPanel({
           <div>
             <h3 className="text-base font-bold text-foreground">Cài đặt quy đổi vàng</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Tỷ giá USD/VND lấy từ Vietcombank mỗi lần tải dữ liệu hoặc nhấn làm mới.
+              Tỷ giá USD/VND lấy từ Vietcombank một lần trong mỗi phiên app và dùng lại cho toàn bộ phép quy đổi.
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-muted">
@@ -166,7 +167,11 @@ export default function GoldPage() {
 
   const { data, isLoading, dataUpdatedAt } = useQuery<any>({
     queryKey: ["/api/prices/gold"],
-    refetchInterval: 60_000,
+    refetchInterval: MARKET_REFRESH_INTERVAL,
+  });
+
+  const { data: usdVndData } = useQuery<{ rate: number; source: string; lastUpdated: string }>({
+    queryKey: ["/api/exchange-rates/usd-vnd"],
   });
 
   const gold = data?.XAU;
@@ -176,7 +181,7 @@ export default function GoldPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/prices/gold"] });
 
   const usdOz = gold?.priceUsdOz || 0;
-  const usdToVnd = gold?.usdToVnd || 26315;
+  const usdToVnd = usdVndData?.rate || gold?.usdToVnd || 26315;
   const { shippingPerOz, insurancePerOz, importTaxPct, processingFeePerLuong } = settings;
 
   const convertedWorldPriceRaw =
@@ -215,7 +220,7 @@ export default function GoldPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Vàng</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Cập nhật app {lastUpdate} · Thế giới {worldUpdated} · Việt Nam {vietnamUpdated} · Nguồn: vang.today, Vietcombank
+            Cập nhật lúc {lastUpdate} · Thế giới {worldUpdated} · Việt Nam {vietnamUpdated} · Nguồn: vang.today, Vietcombank · Tự động mới 3 phút
           </p>
         </div>
         <div className="flex gap-2">
@@ -240,7 +245,7 @@ export default function GoldPage() {
           ) : (
             <>
               <p className="text-4xl font-bold text-amber-900 dark:text-amber-100">${fmtUsd(usdOz)}</p>
-              <p className="mt-0.5 text-sm text-amber-700 dark:text-amber-300">per troy ounce</p>
+              <p className="mt-0.5 text-sm text-amber-700 dark:text-amber-300">per ounce</p>
               <p className={cn("mt-2 flex items-center gap-1 text-sm font-medium", getChangeColor(gold?.changePercent || 0))}>
                 {(gold?.changePercent || 0) >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                 {gold ? formatPercent(gold.changePercent) : "--"} hôm nay
@@ -255,7 +260,7 @@ export default function GoldPage() {
               </p>
             </div>
             <div>
-              <p className="text-amber-600 dark:text-amber-400">Giá quy đổi thế giới</p>
+              <p className="text-amber-600 dark:text-amber-400">Giá quy đổi</p>
               <p className="font-bold text-amber-800 dark:text-amber-200">{fmt(convertedWorldPrice)}đ/lượng</p>
             </div>
           </div>
@@ -300,7 +305,7 @@ export default function GoldPage() {
           ) : goldType === "sjc" ? (
             <div>
               <p className="mb-0.5 text-xs text-yellow-700 dark:text-yellow-400">
-                SJC 9999 (giá fetch từ thị trường)
+                SJC 9999
               </p>
               <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(sjcPrice)}đ</p>
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-yellow-700 dark:text-yellow-400">
@@ -315,7 +320,7 @@ export default function GoldPage() {
           ) : (
             <div>
               <p className="mb-0.5 text-xs text-yellow-700 dark:text-yellow-400">
-                Nhẫn SJC (giá fetch từ thị trường)
+                Nhẫn SJC
               </p>
               <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(nhanPrice)}đ</p>
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-yellow-700 dark:text-yellow-400">
@@ -356,11 +361,11 @@ export default function GoldPage() {
         </div>
         <div className="rounded-xl border border-card-border bg-card p-3">
           <p className="mb-1 text-xs text-muted-foreground">Thay đổi 24h XAU</p>
-          <p className={cn("text-base font-bold", getChangeColor(gold?.changePercent || 0))}>
-            {gold ? formatPercent(gold.changePercent) : "--"}
+          <p className={cn("text-base font-bold", getChangeColor(gold?.changeUsdOz || 0))}>
+            {gold ? `${gold.changeUsdOz >= 0 ? "+$" : "-$"}${fmtUsd(Math.abs(gold.changeUsdOz))} / oz` : "--"}
           </p>
           <p className="text-xs text-muted-foreground">
-            {gold?.change ? `${gold.change >= 0 ? "+" : ""}${fmt(gold.change)}đ` : ""}
+            {gold ? `${gold.change >= 0 ? "+" : ""}${fmt(gold.change)}đ/lượng` : ""}
           </p>
         </div>
       </div>

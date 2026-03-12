@@ -49,7 +49,79 @@ Note:
 ## Authentication and User Data
 - Google sign-in and Email/Password sign-in are supported.
 - Portfolio, watchlist, and per-user settings are stored in Firestore.
+- Portfolio items now support:
+  - base currency per asset: `VND` or `USD`
+  - multiple buy lots with quantity, price, and buy timestamp
+  - dividend history for stocks with amount and received timestamp
 - User settings include theme, font, menu preferences, display name, avatar icon, and password updates for email/password accounts.
+
+## Portfolio Data Model
+
+Portfolio documents are stored under:
+
+```text
+users/{uid}/portfolio/{itemId}
+```
+
+Normalized fields:
+
+- `id`
+- `symbol`
+- `name`
+- `type`
+- `currency`
+- `purchaseLots`
+- `dividends`
+- `quantity`
+- `avgBuyPrice`
+- `notes`
+- `addedAt`
+
+Example:
+
+```json
+{
+  "id": "abc123",
+  "symbol": "VNM",
+  "name": "Vinamilk",
+  "type": "stock",
+  "currency": "VND",
+  "purchaseLots": [
+    {
+      "quantity": 100,
+      "price": 82000,
+      "boughtAt": "2026-03-12T02:15:00.000Z"
+    },
+    {
+      "quantity": 50,
+      "price": 79000,
+      "boughtAt": "2026-03-15T03:30:00.000Z"
+    }
+  ],
+  "dividends": [
+    {
+      "amount": 1500000,
+      "receivedAt": "2026-04-10T00:00:00.000Z"
+    }
+  ],
+  "quantity": 150,
+  "avgBuyPrice": 81000,
+  "notes": "Tích lũy dài hạn",
+  "addedAt": "2026-03-12T02:15:00.000Z"
+}
+```
+
+Notes:
+
+- `quantity` and `avgBuyPrice` are derived from `purchaseLots` in the client data layer.
+- Existing older documents without `currency`, `purchaseLots`, or `dividends` are normalized on read for backward compatibility.
+- Stock ROI includes both price change and received dividends.
+
+ROI formula:
+
+```text
+ROI = (Current Value - Cost Basis + Dividends Received) / Cost Basis
+```
 
 ## Stock Price API
 
@@ -139,6 +211,11 @@ Listing/search:
 - Crypto: CoinGecko
 - News: Vietstock RSS
 
+Notes:
+
+- Gold, oil, crypto, and VN stock market data are refreshed every 3 minutes in the client.
+- USD/VND is fetched from Vietcombank once and reused across the app session and server cache window because it is treated as fixed intraday for portfolio conversion.
+
 ## Deployment
 
 ### Firebase App Hosting
@@ -151,6 +228,23 @@ Listing/search:
 
 ### Production Note
 You do not need Python or `pip install vnstock` on Firebase App Hosting for the current stock-data flow.
+
+### Firestore Rules
+
+After any change to the portfolio document shape, publish [firebase/firestore.rules](firebase/firestore.rules) again.
+
+This is required for fields such as:
+
+- `currency`
+- `purchaseLots`
+- `dividends`
+- `notes`
+
+Deploy command:
+
+```bash
+firebase deploy --only firestore:rules
+```
 
 ## Important Files
 - [client/src/lib/firebase.ts](client/src/lib/firebase.ts)

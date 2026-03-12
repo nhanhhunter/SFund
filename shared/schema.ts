@@ -2,12 +2,35 @@ import { z } from "zod";
 
 export const assetTypeEnum = z.enum(["stock", "gold", "oil", "crypto"]);
 export type AssetType = z.infer<typeof assetTypeEnum>;
+export const assetCurrencyEnum = z.enum(["VND", "USD"]);
+export type AssetCurrency = z.infer<typeof assetCurrencyEnum>;
+
+export function defaultPortfolioCurrency(type: AssetType): AssetCurrency {
+  return type === "stock" || type === "gold" ? "VND" : "USD";
+}
+
+export const portfolioPurchaseSchema = z.object({
+  quantity: z.number(),
+  price: z.number(),
+  boughtAt: z.string(),
+});
+
+export const portfolioDividendSchema = z.object({
+  amount: z.number(),
+  receivedAt: z.string(),
+});
+
+export type PortfolioPurchase = z.infer<typeof portfolioPurchaseSchema>;
+export type PortfolioDividend = z.infer<typeof portfolioDividendSchema>;
 
 export const portfolioItemSchema = z.object({
   id: z.string(),
   symbol: z.string(),
   name: z.string(),
   type: assetTypeEnum,
+  currency: assetCurrencyEnum,
+  purchaseLots: z.array(portfolioPurchaseSchema).min(1),
+  dividends: z.array(portfolioDividendSchema).default([]),
   quantity: z.number(),
   avgBuyPrice: z.number(),
   notes: z.string().optional(),

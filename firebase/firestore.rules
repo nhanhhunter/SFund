@@ -26,14 +26,37 @@ service cloud.firestore {
       return type in ['stock', 'crypto', 'gold', 'oil'];
     }
 
+    function validCurrency(currency) {
+      return currency in ['VND', 'USD'];
+    }
+
     function validPortfolioItem() {
-      return hasOnlyKeys(['id', 'symbol', 'name', 'type', 'quantity', 'avgBuyPrice', 'addedAt']) &&
+      return hasOnlyKeys([
+          'id',
+          'symbol',
+          'name',
+          'type',
+          'currency',
+          'purchaseLots',
+          'dividends',
+          'quantity',
+          'avgBuyPrice',
+          'notes',
+          'addedAt',
+        ]) &&
         isString(request.resource.data.id) &&
         isString(request.resource.data.symbol) &&
         isString(request.resource.data.name) &&
         validAssetType(request.resource.data.type) &&
+        validCurrency(request.resource.data.currency) &&
+        request.resource.data.purchaseLots is list &&
+        request.resource.data.purchaseLots.size() > 0 &&
+        request.resource.data.purchaseLots.size() <= 200 &&
+        request.resource.data.dividends is list &&
+        request.resource.data.dividends.size() <= 200 &&
         isNumber(request.resource.data.quantity) &&
         isNumber(request.resource.data.avgBuyPrice) &&
+        (!request.resource.data.keys().hasAny(['notes']) || isString(request.resource.data.notes)) &&
         isString(request.resource.data.addedAt);
     }
 
