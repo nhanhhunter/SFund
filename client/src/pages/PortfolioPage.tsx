@@ -584,7 +584,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Danh mục đầu tư</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Tự động cập nhật mỗi 3 phút • Tỷ giá USD/VND {usdToVnd.toLocaleString("vi-VN")}
+            Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Làm mới mỗi 3 phút • Tỷ giá USD/VND {usdToVnd.toLocaleString("vi-VN")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -613,8 +613,8 @@ export default function PortfolioPage() {
             Lãi/lỗ: {totalPricePnl >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalPricePnl))} ({formatPercent(totalPricePnlPct)})
           </p>
-          <p className={cn("text-xs lg:text-sm font-medium mt-1", getChangeColor(totalRoi))}>
-            {totalPricePnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />} ROI: {totalRoi >= 0 ? "+" : "-"}
+          <p className={cn("text-xs lg:text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(totalRoi))}>
+            {totalRoi >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />} ROI: {totalRoi >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalRoi))} ({formatPercent(totalRoiPct)})
           </p>
           <p className={cn("text-xs lg:text-sm mt-1", getChangeColor(totalDayPnl))}>
@@ -699,13 +699,13 @@ export default function PortfolioPage() {
               </div>
             </div>
           ) : null}
-          {selectedItem ? <AssetPriceChartCard item={selectedItem} /> : null}
         </div>
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-12">
         <div className="lg:col-span-8">
-          <div className="bg-card border border-card-border rounded-xl overflow-hidden">
+          <div className="space-y-3">
+            <div className="bg-card border border-card-border rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-card-border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
@@ -821,6 +821,8 @@ export default function PortfolioPage() {
                 ))}
               </div>
             )}
+          </div>
+            {selectedItem ? <AssetPriceChartCard item={selectedItem} /> : null}
           </div>
         </div>
 

@@ -329,11 +329,30 @@ async function fetchVietcombankRate(): Promise<number> {
   return 26315;
 }
 
+async function fetchBaomoiVietcombankRate(): Promise<number | null> {
+  try {
+    const html = await fetchText("https://baomoi.com/tien-ich-ty-gia-ngoai-te-vietcombank.epi");
+    const normalized = html.replace(/\s+/g, " ");
+    const usdBlockMatch = normalized.match(/USD[\s\S]{0,800}?([0-9]{2},[0-9]{3})[\s\S]{0,200}?([0-9]{2},[0-9]{3})[\s\S]{0,200}?([0-9]{2},[0-9]{3})/i);
+    const candidates = usdBlockMatch ? usdBlockMatch.slice(1) : normalized.match(/USD[\s\S]{0,800}?([0-9]{2},[0-9]{3})/i)?.slice(1);
+    const parsed = candidates
+      ?.map((value) => Number(value.replace(/,/g, "")))
+      .filter((value) => Number.isFinite(value) && value > 20000 && value < 50000);
+
+    if (parsed?.length) {
+      return parsed[parsed.length - 1];
+    }
+  } catch {}
+
+  return null;
+}
+
 async function fetchUsdToVndRate() {
-  const rate = await fetchVietcombankRate();
+  const baomoiRate = await fetchBaomoiVietcombankRate();
+  const rate = baomoiRate || await fetchVietcombankRate();
   return {
     rate: Math.round(rate),
-    source: "Vietcombank",
+    source: baomoiRate ? "Baomoi • Vietcombank" : "Vietcombank XML",
     lastUpdated: new Date().toISOString(),
   };
 }

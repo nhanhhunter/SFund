@@ -10,6 +10,7 @@ import { cn, formatNumber, formatPercent, formatVnd } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
 import { useAuth } from "@/components/AuthProvider";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
 import { addWatchlistItem, listWatchlistItems, removeWatchlistItem } from "@/lib/user-data";
 import { useToast } from "@/hooks/use-toast";
 
@@ -112,8 +113,8 @@ function IndexCard({ symbol, name, data, period, onRemove, onSelect, selected }:
   );
 }
 
-function StockRow({ symbol, data, onRemove, onSelect, selected }: {
-  symbol: string; data: any; onRemove: () => void; onSelect: () => void; selected: boolean;
+function StockRow({ symbol, data, miniChartDays, onRemove, onSelect, selected }: {
+  symbol: string; data: any; miniChartDays: number; onRemove: () => void; onSelect: () => void; selected: boolean;
 }) {
   const name = data?.name || symbol;
   const shortName = name.includes(" - ") ? name.split(" - ")[0] : name;
@@ -136,7 +137,7 @@ function StockRow({ symbol, data, onRemove, onSelect, selected }: {
       </div>
 
       <div className="w-16 h-8 shrink-0">
-        {data && price ? <PriceChart type="stock" symbol={symbol} days={7} currentPrice={price} mini height={32} /> : null}
+        {data && price ? <PriceChart type="stock" symbol={symbol} days={miniChartDays} currentPrice={price} mini height={32} /> : null}
       </div>
 
       <div className="text-right min-w-[96px]">
@@ -302,12 +303,18 @@ function DetailPanel({ item, type, onClose }: { item: { symbol: string; name?: s
 
 export default function StocksPage() {
   const { user } = useAuth();
+  const { preferences } = useUserPreferences();
   const { toast } = useToast();
-  const [period, setPeriod] = useState<Period>("7");
+  const [period, setPeriod] = useState<Period>(preferences.miniChartPeriod);
   const [selectedItem, setSelectedItem] = useState<{ symbol: string; type: "index" | "stock" } | null>(null);
   const [indices, setIndices] = useLocalStorage<string[]>("vn_indices_pins", DEFAULT_INDICES);
   const validIndexSymbols = new Set(ALL_INDICES.map((item) => item.symbol));
   const activeIndices = indices.filter((symbol) => validIndexSymbols.has(symbol));
+  const miniChartDays = preferences.miniChartPeriod === "1" ? 1 : preferences.miniChartPeriod === "7" ? 7 : 30;
+
+  useEffect(() => {
+    setPeriod(preferences.miniChartPeriod);
+  }, [preferences.miniChartPeriod]);
 
   const { data: indicesData, isLoading: loadingIndices } = useQuery<any>({
     queryKey: ["/api/prices/indices"],
@@ -457,6 +464,7 @@ export default function StocksPage() {
                     key={symbol}
                     symbol={symbol}
                     data={priceData ? { ...priceData, name } : null}
+                    miniChartDays={miniChartDays}
                     onRemove={() => removeStock(symbol)}
                     onSelect={() => selectItem(symbol, "stock")}
                     selected={selectedItem?.symbol === symbol}

@@ -4,10 +4,11 @@ import { TrendingUp, TrendingDown, RefreshCw, X, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn, formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber, formatPercent, getChangeColor } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
 import { queryClient, fetchJson } from "@/lib/queryClient";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
 
 const ALL_INDEX_CARDS = [
   { key: "vnIndex", label: "VN-Index", symbol: "VNINDEX", type: "index" as const },
@@ -83,6 +84,7 @@ function MiniChartCard({
   symbol,
   chartType,
   chartCurrentPrice,
+  miniChartDays,
   onRemove,
 }: {
   label: string;
@@ -93,6 +95,7 @@ function MiniChartCard({
   symbol: string;
   chartType: "index" | "gold" | "oil";
   chartCurrentPrice?: number;
+  miniChartDays: number;
   onRemove: () => void;
 }) {
   if (loading) return <Skeleton className="h-32 rounded-xl" />;
@@ -119,7 +122,7 @@ function MiniChartCard({
         {change >= 0 ? "+" : ""}
         {typeof change === "number" ? change.toFixed(2) : change}
       </p>
-      <PriceChart type={chartType} symbol={symbol} days={7} currentPrice={chartCurrentPrice} mini height={48} />
+      <PriceChart type={chartType} symbol={symbol} days={miniChartDays} currentPrice={chartCurrentPrice} mini height={48} />
     </div>
   );
 }
@@ -230,9 +233,12 @@ function AddCardSearch<T extends { key?: string; id?: string; label: string }>({
 }
 
 export default function Dashboard() {
+  const { preferences } = useUserPreferences();
   const [indexKeys, setIndexKeys] = useLocalStorage<string[]>("dashboard_index_card_keys", DEFAULT_INDEX_CARD_KEYS);
   const [commodityKeys, setCommodityKeys] = useLocalStorage<string[]>("dashboard_commodity_card_keys", DEFAULT_COMMODITY_CARD_KEYS);
   const [cryptoIds, setCryptoIds] = useLocalStorage<string[]>("dashboard_crypto_ids", DEFAULT_CRYPTO_IDS);
+  const miniChartDays =
+    preferences.miniChartPeriod === "1" ? 1 : preferences.miniChartPeriod === "7" ? 7 : 30;
 
   const { data: overview, isLoading, dataUpdatedAt } = useQuery<any>({
     queryKey: ["/api/market-overview"],
@@ -298,7 +304,7 @@ export default function Dashboard() {
     const data = indices[card.key];
     return {
       label: card.label,
-      value: data ? data.price.toLocaleString("vi-VN", { maximumFractionDigits: 2 }) : "--",
+      value: data ? formatNumber(data.price, { maximumFractionDigits: 2 }) : "--",
       change: data?.change || 0,
       changePercent: data?.changePercent || 0,
       symbol: card.symbol,
@@ -322,7 +328,7 @@ export default function Dashboard() {
       case "gold_vnd":
         return {
           label: card.label,
-          value: gold?.SJC?.sell ? new Intl.NumberFormat("vi-VN").format(gold.SJC.sell) : "--",
+          value: gold?.SJC?.sell ? formatNumber(gold.SJC.sell, { maximumFractionDigits: 0 }) : "--",
           change: 0,
           changePercent: 0,
           symbol: "SJC_VND",
@@ -392,6 +398,7 @@ export default function Dashboard() {
               <MiniChartCard
                 key={card.key}
                 loading={isLoading}
+                miniChartDays={miniChartDays}
                 onRemove={() => removeIndexCard(card.key)}
                 {...getIndexCardProps(card)}
               />
@@ -420,6 +427,7 @@ export default function Dashboard() {
               <MiniChartCard
                 key={card.key}
                 loading={isLoading}
+                miniChartDays={miniChartDays}
                 onRemove={() => removeCommodityCard(card.key)}
                 {...getCommodityCardProps(card)}
               />

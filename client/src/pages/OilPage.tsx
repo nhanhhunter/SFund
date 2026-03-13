@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatPercent, getChangeColor } from "@/lib/utils";
+import { cn, formatNumber, formatPercent, getChangeColor } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
 import { queryClient } from "@/lib/queryClient";
@@ -105,7 +105,7 @@ export default function OilPage() {
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">WTI (VND/lít)</p>
-          <p className="text-base font-bold">{wti ? `${new Intl.NumberFormat("vi-VN").format(Math.round((wti.price / 158.987) * 26200))}đ` : "--"}</p>
+          <p className="text-base font-bold">{wti ? `${formatNumber(Math.round((wti.price / 158.987) * 26200), { maximumFractionDigits: 0 })}đ` : "--"}</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Thị trường</p>

@@ -12,6 +12,7 @@ import {
   DEFAULT_NAV_ORDER,
   DEFAULT_USER_PREFERENCES,
   type FontPreference,
+  type MiniChartPeriodPreference,
   type UserPreferences,
   getUserPreferences,
   saveUserPreferences,
@@ -187,4 +188,4 @@ export function useUserPreferences() {
   return context;
 }
 
-export type { FontPreference };
+export type { FontPreference, MiniChartPeriodPreference };

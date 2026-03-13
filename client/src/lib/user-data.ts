@@ -22,10 +22,12 @@ import { db } from "@/lib/firebase";
 
 export type ThemePreference = "light" | "dark";
 export type FontPreference = "editorial" | "sans" | "display";
+export type MiniChartPeriodPreference = "1" | "7" | "30";
 
 export type UserPreferences = {
   theme: ThemePreference;
   fontFamily: FontPreference;
+  miniChartPeriod: MiniChartPeriodPreference;
   menuOrder: string[];
   hiddenMenuItems: string[];
   displayName: string;
@@ -48,6 +50,7 @@ export const AVATAR_CHOICES = ["🧭", "📈", "💼", "🚀", "🛡️"] as con
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: "light",
   fontFamily: "editorial",
+  miniChartPeriod: "7",
   menuOrder: [...DEFAULT_NAV_ORDER],
   hiddenMenuItems: [],
   displayName: "",

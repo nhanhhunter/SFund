@@ -135,6 +135,7 @@ Notes:
   - `Dau WTI (USD/bbl)`
 - Overview cards are added via inline search inputs instead of a settings modal.
 - Cards can be removed directly from the card itself using the `x` button in the top-right corner.
+- Market and commodity values on the Overview page use the same `,` thousands and `.` decimal separators across cards.
 - Dashboard card visibility is persisted in local storage:
   - `dashboard_index_card_keys`
   - `dashboard_commodity_card_keys`
@@ -143,7 +144,7 @@ Notes:
 ### Portfolio
 - The asset-list hint `(chon ma de xem chi tiet)` is shown only when no asset is selected.
 - The selected asset detail card can be closed normally after fixing the `onClose` runtime error.
-- Asset detail and price chart are split into separate cards so the selected asset card does not stretch the first summary row.
+- Asset detail and price chart are split into separate cards, and the selected asset price chart now sits below the asset list section.
 - Dividend amounts displayed in `USD` are rounded to 2 decimal places in portfolio detail and history views.
 - The summary cards use a more consistent title style and icon treatment.
 - The old `Hieu suat tot nhat` card was replaced by a combined ROI performance card with:
@@ -152,12 +153,14 @@ Notes:
 
 ### Watchlist
 - Adding crypto uses live search from `/api/crypto/search`, similar to the dedicated Crypto page.
+- World gold watchlist cards display `XAU` in `USD` instead of `VND`.
 - Gold watchlist options are:
   - `Vang the gioi (XAU/USD)`
   - `Vang SJC 9999`
   - `Vang Nhan SJC`
 - Oil watchlist options are ordered with `BRENT` before `WTI`.
 - Watchlist cards use an `x` remove action for consistency with other card-based pages.
+- Watchlist mini charts use the shared mini-chart period preference.
 
 ### Stocks Page
 - The `Chi so thi truong` section uses the same index set as the Dashboard:
@@ -168,6 +171,11 @@ Notes:
   - `Dow Jones`
   - `Nasdaq Composite`
 - The Stocks page source label reflects combined VN and US index feeds.
+- Stocks mini charts use the shared mini-chart period preference.
+
+### Settings
+- User preferences now include `miniChartPeriod` with available values `1`, `7`, and `30`.
+- The setting is exposed in Settings below the menu customization section and is used as the default mini-chart period across Overview, Watchlist, and Stocks pages.
 
 Portfolio calculations:
 
@@ -269,17 +277,20 @@ Listing/search:
 - Crypto: CoinGecko
 - US indices: Yahoo Finance chart endpoints consumed directly in Node
 - News: Vietstock RSS
+- USD/VND fallback: Baomoi Vietcombank rate page
 
 Yahoo Finance note:
 
 - The current code fetches US indices, Brent, and WTI directly from Yahoo Finance JSON endpoints in the Node server.
 - The `yfinance` project is a Python wrapper around Yahoo Finance data and is a reasonable backup candidate for research or failover workflows.
 - `yfinance` is not enabled in production by default because this project is deployed as a Node app on Firebase App Hosting, and the main production stock flow intentionally avoids Python runtime dependencies.
+- USD/VND now prefers the Baomoi Vietcombank rate page when available and falls back to the older Vietcombank XML endpoint.
 
 Notes:
 
 - Gold, oil, crypto, and VN stock market data are refreshed every 3 minutes in the client.
 - USD/VND is fetched from Vietcombank once and reused across the app session and server cache window because it is treated as fixed intraday for portfolio conversion.
+- Numeric formatting is standardized around `en-US` style separators for market values: `,` for thousands and `.` for decimals.
 
 ## Deployment
 

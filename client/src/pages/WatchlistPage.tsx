@@ -8,6 +8,7 @@ import { cn, formatCurrency, formatNumber, formatPercent, formatVnd, getChangeBg
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/AuthProvider";
 import AuthGate from "@/components/AuthGate";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
 import PriceChart from "@/components/PriceChart";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -172,9 +173,9 @@ function CryptoSearchInput({
 function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; priceData: any; onClose: () => void }) {
   const [period, setPeriod] = useState<Period>("7");
   const changePercent = item.type === "stock" ? priceData?.changePercent || 0 : item.type === "crypto" ? priceData?.usd_24h_change || 0 : priceData?.changePercent || 0;
-  const price = item.type === "stock" ? priceData?.price : item.type === "crypto" ? priceData?.usd : item.type === "gold" ? priceData?.priceVndLuong : priceData?.price;
-  const displayPrice = item.type === "stock" ? (price ? formatVnd(price) : "--") : item.type === "gold" ? (price ? formatVnd(Math.round(price)) : "--") : price ? formatCurrency(price) : "--";
-  const change = item.type === "stock" ? priceData?.change : item.type === "gold" || item.type === "oil" ? priceData?.change : null;
+  const price = item.type === "stock" ? priceData?.price : item.type === "crypto" ? priceData?.usd : item.type === "gold" ? (item.symbol === "XAU" ? priceData?.priceUsdOz : priceData?.priceVndLuong) : priceData?.price;
+  const displayPrice = item.type === "stock" ? (price ? formatVnd(price) : "--") : item.type === "gold" ? (item.symbol === "XAU" ? (price ? formatCurrency(price) : "--") : price ? formatVnd(Math.round(price)) : "--") : price ? formatCurrency(price) : "--";
+  const change = item.type === "stock" ? priceData?.change : item.type === "gold" ? (item.symbol === "XAU" ? priceData?.changeUsdOz : priceData?.change) : item.type === "oil" ? priceData?.change : null;
   const high = item.type === "stock" ? priceData?.high : null;
   const low = item.type === "stock" ? priceData?.low : null;
   const volume = item.type === "stock" ? priceData?.volume : item.type === "crypto" ? priceData?.usd_24h_vol : null;
@@ -210,7 +211,7 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
             <div className="bg-muted/50 rounded-lg px-2 py-1.5">
               <p className="text-muted-foreground">Thay đổi</p>
               <p className={cn("font-bold", getChangeColor(change))}>
-                {item.type === "stock" ? `${change >= 0 ? "+" : "-"}${formatVnd(Math.abs(change))}` : `${change >= 0 ? "+" : ""}${change}`}
+                {item.type === "stock" ? `${change >= 0 ? "+" : "-"}${formatVnd(Math.abs(change))}` : item.type === "gold" && item.symbol === "XAU" ? `${change >= 0 ? "+$" : "-$"}${Math.abs(change).toFixed(2)}` : `${change >= 0 ? "+" : ""}${change}`}
               </p>
             </div>
           ) : null}
@@ -236,12 +237,14 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
 
 export default function WatchlistPage() {
   const { user, loading, enabled } = useAuth();
+  const { preferences } = useUserPreferences();
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
   const [addType, setAddType] = useState("stock");
   const [addSymbol, setAddSymbol] = useState("");
   const [addName, setAddName] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const miniChartDays = preferences.miniChartPeriod === "1" ? 1 : preferences.miniChartPeriod === "7" ? 7 : 30;
 
   const { data: watchlist, isLoading } = useQuery<WatchlistItem[]>({
     queryKey: ["watchlist", user?.uid],
@@ -331,7 +334,7 @@ export default function WatchlistPage() {
     if (!priceData) return "--";
     if (item.type === "stock") return formatVnd(priceData.price);
     if (item.type === "crypto") return formatCurrency(priceData.usd);
-    if (item.type === "gold") return formatVnd(Math.round(priceData.priceVndLuong));
+    if (item.type === "gold") return item.symbol === "XAU" ? formatCurrency(priceData.priceUsdOz) : formatVnd(Math.round(priceData.priceVndLuong));
     if (item.type === "oil") return formatCurrency(priceData.price);
     return "--";
   };
@@ -432,7 +435,7 @@ export default function WatchlistPage() {
                     </div>
 
                     <div className="h-14">
-                      <PriceChart type={item.type === "stock" ? "stock" : item.type === "crypto" ? "crypto" : item.type === "gold" ? "gold" : "oil"} symbol={item.symbol} days={14} height={56} mini />
+                      <PriceChart type={item.type === "stock" ? "stock" : item.type === "crypto" ? "crypto" : item.type === "gold" ? "gold" : "oil"} symbol={item.symbol} days={miniChartDays} height={56} mini />
                     </div>
                   </div>
                 </div>

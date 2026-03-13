@@ -4,7 +4,7 @@ import { RefreshCw, Settings, TrendingDown, TrendingUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatPercent, getChangeColor } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber, formatPercent, formatVnd, getChangeColor } from "@/lib/utils";
 import PriceChart from "@/components/PriceChart";
 import NewsSection from "@/components/NewsSection";
 import { queryClient } from "@/lib/queryClient";
@@ -79,9 +79,8 @@ function SettingsPanel({
   const formulaBeforeTax = (worldGoldPrice + local.shippingPerOz + local.insurancePerOz) * FIXED_LUONG_PER_OUNCE * usdToVnd;
   const formulaAfterTax = formulaBeforeTax * (1 + local.importTaxPct / 100);
   const formulaFinal = formulaAfterTax + local.processingFeePerLuong;
-  const fmt = (value: number) => new Intl.NumberFormat("vi-VN").format(Math.round(value));
-  const fmtUsd = (value: number) =>
-    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  const fmt = (value: number) => formatNumber(Math.round(value), { maximumFractionDigits: 0 });
+  const fmtUsd = (value: number) => formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -115,7 +114,7 @@ function SettingsPanel({
               <span className="text-muted-foreground">Giá thế giới</span>
               <span className="font-medium">${fmtUsd(worldGoldPrice)}/oz</span>
               <span className="text-muted-foreground">Tỷ giá USD/VND</span>
-              <span className="font-medium">{usdToVnd.toLocaleString("vi-VN")}</span>
+              <span className="font-medium">{formatNumber(usdToVnd, { maximumFractionDigits: 0 })}</span>
               <span className="text-muted-foreground">Sau phí vận chuyển + BH</span>
               <span className="font-medium">{fmt(formulaBeforeTax)}đ</span>
               <span className="text-muted-foreground">Sau thuế nhập khẩu</span>
@@ -129,7 +128,7 @@ function SettingsPanel({
               </p>
               <p className="mt-2 font-medium text-foreground">
                 = ({fmtUsd(worldGoldPrice)} + {local.shippingPerOz} + {local.insurancePerOz}) ×{" "}
-                {(1 + local.importTaxPct / 100).toFixed(2)} × {FIXED_LUONG_PER_OUNCE} × {usdToVnd.toLocaleString("vi-VN")} +{" "}
+                {(1 + local.importTaxPct / 100).toFixed(2)} × {FIXED_LUONG_PER_OUNCE} × {formatNumber(usdToVnd, { maximumFractionDigits: 0 })} +{" "}
                 {fmt(local.processingFeePerLuong)}
               </p>
               <p className="mt-1 font-bold text-foreground">
@@ -179,6 +178,7 @@ export default function GoldPage() {
   const nhan = data?.NHAN9999;
   const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("vi-VN") : "--";
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/prices/gold"] });
+  const fxSource = usdVndData?.source || "Vietcombank";
 
   const usdOz = gold?.priceUsdOz || 0;
   const usdToVnd = usdVndData?.rate || gold?.usdToVnd || 26315;
@@ -199,9 +199,8 @@ export default function GoldPage() {
   const sjcSpreadPct = convertedWorldPrice > 0 ? (sjcSpread / convertedWorldPrice) * 100 : 0;
   const nhanSpreadPct = convertedWorldPrice > 0 ? (nhanSpread / convertedWorldPrice) * 100 : 0;
 
-  const fmt = (value: number) => new Intl.NumberFormat("vi-VN").format(Math.round(value));
-  const fmtUsd = (value: number) =>
-    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  const fmt = (value: number) => formatNumber(Math.round(value), { maximumFractionDigits: 0 });
+  const fmtUsd = (value: number) => formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const vietnamChartPrice = goldType === "sjc" ? sjcPrice : nhanPrice;
   const activeSpread = goldType === "sjc" ? sjcSpread : nhanSpread;
@@ -220,7 +219,7 @@ export default function GoldPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Vàng</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Cập nhật lúc {lastUpdate} · Thế giới {worldUpdated} · Việt Nam {vietnamUpdated} · Nguồn: vang.today, Vietcombank · Tự động mới 3 phút
+            Cập nhật lúc {lastUpdate} · Thế giới {worldUpdated} · Việt Nam {vietnamUpdated} · Nguồn: vang.today, {fxSource} · Tự động mới 3 phút
           </p>
         </div>
         <div className="flex gap-2">
@@ -256,12 +255,12 @@ export default function GoldPage() {
             <div>
               <p className="text-amber-600 dark:text-amber-400">Tỷ giá USD/VND</p>
               <p className="font-bold text-amber-800 dark:text-amber-200">
-                {usdToVnd.toLocaleString("vi-VN")} (VCB bán ra)
+                {formatNumber(usdToVnd, { maximumFractionDigits: 0 })} (VCB bán ra)
               </p>
             </div>
             <div>
               <p className="text-amber-600 dark:text-amber-400">Giá quy đổi</p>
-              <p className="font-bold text-amber-800 dark:text-amber-200">{fmt(convertedWorldPrice)}đ/lượng</p>
+              <p className="font-bold text-amber-800 dark:text-amber-200">{formatVnd(convertedWorldPrice)}</p>
             </div>
           </div>
         </div>
@@ -307,13 +306,13 @@ export default function GoldPage() {
               <p className="mb-0.5 text-xs text-yellow-700 dark:text-yellow-400">
                 SJC 9999
               </p>
-              <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(sjcPrice)}đ</p>
+              <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{formatVnd(sjcPrice)}</p>
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-yellow-700 dark:text-yellow-400">
-                <span>Mua vào: {fmt(sjc?.buy || 0)}đ</span>
-                <span>Quy đổi TG: {fmt(convertedWorldPrice)}đ</span>
+                <span>Mua vào: {formatVnd(sjc?.buy || 0)}</span>
+                <span>Quy đổi TG: {formatVnd(convertedWorldPrice)}</span>
                 <span className={cn("font-semibold", activeSpread >= 0 ? "text-amber-700" : "text-emerald-700")}>
                   Chênh lệch: {activeSpread >= 0 ? "+" : ""}
-                  {fmt(activeSpread)}đ ({activeSpreadPct.toFixed(1)}%)
+                  {formatVnd(Math.abs(activeSpread))} ({activeSpreadPct.toFixed(1)}%)
                 </span>
               </div>
             </div>
@@ -322,13 +321,13 @@ export default function GoldPage() {
               <p className="mb-0.5 text-xs text-yellow-700 dark:text-yellow-400">
                 Nhẫn SJC
               </p>
-              <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{fmt(nhanPrice)}đ</p>
+              <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">{formatVnd(nhanPrice)}</p>
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-yellow-700 dark:text-yellow-400">
-                <span>Mua vào: {fmt(nhan?.buy || 0)}đ</span>
-                <span>Quy đổi TG: {fmt(convertedWorldPrice)}đ</span>
+                <span>Mua vào: {formatVnd(nhan?.buy || 0)}</span>
+                <span>Quy đổi TG: {formatVnd(convertedWorldPrice)}</span>
                 <span className={cn("font-semibold", activeSpread >= 0 ? "text-amber-700" : "text-emerald-700")}>
                   Chênh lệch: {activeSpread >= 0 ? "+" : ""}
-                  {fmt(activeSpread)}đ ({activeSpreadPct.toFixed(1)}%)
+                  {formatVnd(Math.abs(activeSpread))} ({activeSpreadPct.toFixed(1)}%)
                 </span>
               </div>
             </div>
@@ -342,7 +341,7 @@ export default function GoldPage() {
           <p className="mb-1 text-xs text-muted-foreground">Chênh lệch SJC 9999</p>
           <p className={cn("text-base font-bold", getChangeColor(sjcSpread))}>
             {sjcSpread >= 0 ? "+" : ""}
-            {fmt(sjcSpread)}đ
+            {formatVnd(Math.abs(sjcSpread))}
           </p>
           <p className="text-xs text-muted-foreground">{sjcSpreadPct.toFixed(1)}% so với quy đổi</p>
         </div>
@@ -350,13 +349,13 @@ export default function GoldPage() {
           <p className="mb-1 text-xs text-muted-foreground">Chênh lệch Nhẫn SJC</p>
           <p className={cn("text-base font-bold", getChangeColor(nhanSpread))}>
             {nhanSpread >= 0 ? "+" : ""}
-            {fmt(nhanSpread)}đ
+            {formatVnd(Math.abs(nhanSpread))}
           </p>
           <p className="text-xs text-muted-foreground">{nhanSpreadPct.toFixed(1)}% so với quy đổi</p>
         </div>
         <div className="rounded-xl border border-card-border bg-card p-3">
           <p className="mb-1 text-xs text-muted-foreground">USD/VND (VCB)</p>
-          <p className="text-base font-bold">{usdToVnd.toLocaleString("vi-VN")}</p>
+          <p className="text-base font-bold">{formatNumber(usdToVnd, { maximumFractionDigits: 0 })}</p>
           <p className="text-xs text-muted-foreground">Tỷ giá bán ra</p>
         </div>
         <div className="rounded-xl border border-card-border bg-card p-3">
@@ -365,7 +364,7 @@ export default function GoldPage() {
             {gold ? `${gold.changeUsdOz >= 0 ? "+$" : "-$"}${fmtUsd(Math.abs(gold.changeUsdOz))} / oz` : "--"}
           </p>
           <p className="text-xs text-muted-foreground">
-            {gold ? `${gold.change >= 0 ? "+" : ""}${fmt(gold.change)}đ/lượng` : ""}
+            {gold ? `${gold.change >= 0 ? "+" : ""}${formatNumber(Math.abs(gold.change), { maximumFractionDigits: 0 })} đ/lượng` : ""}
           </p>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { HandCoins, Heart, LockKeyhole, MoonStar, Paintbrush2, Shield, Trash2, U
 import { Link } from "wouter";
 import AuthGate from "@/components/AuthGate";
 import { useAuth } from "@/components/AuthProvider";
-import { useUserPreferences } from "@/components/UserPreferencesProvider";
+import { useUserPreferences, type MiniChartPeriodPreference } from "@/components/UserPreferencesProvider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +36,12 @@ const FONT_OPTIONS = [
   { value: "sans", label: "Be Vietnam Pro" },
   { value: "display", label: "Space Grotesk" },
 ] as const;
+
+const MINI_CHART_PERIOD_OPTIONS: Array<{ value: MiniChartPeriodPreference; label: string }> = [
+  { value: "1", label: "1N" },
+  { value: "7", label: "7N" },
+  { value: "30", label: "30N" },
+];
 
 const AVATAR_OPTIONS = ["👨", "👩", "👨‍💼", "👩‍💼", "🧑"];
 
@@ -291,6 +297,30 @@ export default function SettingsPage() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-5 space-y-2 border-t border-card-border pt-5">
+            <Label>Chu kỳ mini chart mặc định</Label>
+            <Select
+              value={preferences.miniChartPeriod}
+              onValueChange={(value) => {
+                void updatePreferences({ miniChartPeriod: value as MiniChartPeriodPreference });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn chu kỳ" />
+              </SelectTrigger>
+              <SelectContent>
+                {MINI_CHART_PERIOD_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Áp dụng cho mini chart trong các card ở trang Tổng quan, Theo dõi và Cổ phiếu.
+            </p>
           </div>
 
           <div className="mt-5 border-t border-card-border pt-5">
