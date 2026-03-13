@@ -3,7 +3,7 @@
 ## Overview
 SFund is a Vietnamese personal finance dashboard for tracking stocks, portfolio holdings, watchlists, gold, oil, and crypto. The application uses a React frontend, an Express API, Firebase Authentication, and Firestore.
 
-Stripe has been removed from the project. Support/donation guidance in the app now uses Momo only.
+Stripe has been removed from the project. Support and donation guidance in the app now uses Momo only.
 
 ## Stack
 - Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query, Recharts
@@ -47,7 +47,7 @@ Note:
 ## Authentication and User Data
 - Google sign-in and Email/Password sign-in are supported.
 - Portfolio, watchlist, and per-user settings are stored in Firestore.
-- Portfolio items now support:
+- Portfolio items support:
   - base currency per asset: `VND` or `USD`
   - multiple buy lots with quantity, price, and buy timestamp
   - dividend history for stocks with amount and received timestamp
@@ -105,7 +105,7 @@ Example:
   ],
   "quantity": 150,
   "avgBuyPrice": 81000,
-  "notes": "Tích lũy dài hạn",
+  "notes": "Tich luy dai han",
   "addedAt": "2026-03-12T02:15:00.000Z",
   "updatedAt": "2026-03-16T08:45:00.000Z"
 }
@@ -129,36 +129,50 @@ Notes:
   - `Dow Jones`
   - `Nasdaq Composite`
 - Commodity cards on the Overview page are ordered as:
-  - `Vàng (USD/Oz)`
-  - `Vàng SJC 9999`
-  - `Dầu Brent (USD/bbl)`
-  - `Dầu WTI (USD/bbl)`
-- Overview cards are now added via inline search inputs instead of a settings modal.
-- Cards can be removed directly from the card itself using the `x` button in the top-left corner.
+  - `Vang (USD/Oz)`
+  - `Vang SJC 9999`
+  - `Dau Brent (USD/bbl)`
+  - `Dau WTI (USD/bbl)`
+- Overview cards are added via inline search inputs instead of a settings modal.
+- Cards can be removed directly from the card itself using the `x` button in the top-right corner.
 - Dashboard card visibility is persisted in local storage:
   - `dashboard_index_card_keys`
   - `dashboard_commodity_card_keys`
   - `dashboard_crypto_ids`
 
 ### Portfolio
-- The asset-list hint `(chọn mã để xem chi tiết)` is shown only when no asset is selected.
-- Asset detail and price chart are split into separate cards so the selected asset card does not stretch the first dashboard row.
-- Dividend amounts displayed in `USD` are rounded to 2 decimal places in portfolio detail/history views.
+- The asset-list hint `(chon ma de xem chi tiet)` is shown only when no asset is selected.
+- The selected asset detail card can be closed normally after fixing the `onClose` runtime error.
+- Asset detail and price chart are split into separate cards so the selected asset card does not stretch the first summary row.
+- Dividend amounts displayed in `USD` are rounded to 2 decimal places in portfolio detail and history views.
 - The summary cards use a more consistent title style and icon treatment.
-- The old `Hiệu suất tốt nhất` card was replaced by a combined ROI performance card with:
-  - `Hiệu suất cao`: top 2 assets by ROI
-  - `Hiệu suất thấp`: bottom 2 assets by ROI
+- The old `Hieu suat tot nhat` card was replaced by a combined ROI performance card with:
+  - `Hieu suat cao`: top 2 assets by ROI
+  - `Hieu suat thap`: bottom 2 assets by ROI
+
+### Watchlist
+- Adding crypto uses live search from `/api/crypto/search`, similar to the dedicated Crypto page.
+- Gold watchlist options are:
+  - `Vang the gioi (XAU/USD)`
+  - `Vang SJC 9999`
+  - `Vang Nhan SJC`
+- Oil watchlist options are ordered with `BRENT` before `WTI`.
+- Watchlist cards use an `x` remove action for consistency with other card-based pages.
+
+### Stocks Page
+- The `Chi so thi truong` section uses the same index set as the Dashboard:
+  - `VN-Index`
+  - `HNX-Index`
+  - `UPCOM`
+  - `S&P 500`
+  - `Dow Jones`
+  - `Nasdaq Composite`
+- The Stocks page source label reflects combined VN and US index feeds.
 
 Portfolio calculations:
 
 ```text
-Lãi/Lỗ = (Current Value - Cost Basis) / Cost Basis
-ROI = (Current Value - Cost Basis + Dividends Received) / Cost Basis
-```
-
-ROI formula:
-
-```text
+Lai/Lo = (Current Value - Cost Basis) / Cost Basis
 ROI = (Current Value - Cost Basis + Dividends Received) / Cost Basis
 ```
 
@@ -197,12 +211,16 @@ Interval mapping:
 ### Internal API Endpoints
 - `GET /api/prices/vn/:symbol`
 - `GET /api/prices/vn-batch?symbols=FPT,VNM`
+- `GET /api/prices/indices`
+- `GET /api/market-overview`
 - `GET /api/stocks/search?q=fpt`
 - `GET /api/stocks/lookup/:symbol`
 - `GET /api/stocks/list?exchange=HOSE&page=1&limit=20`
+- `GET /api/crypto/search?q=bitcoin`
 - `GET /api/historical/stock/:symbol?days=1`
 - `GET /api/historical/stock/:symbol?days=7`
 - `GET /api/historical/stock/:symbol?days=30`
+- `GET /api/historical/index/:symbol?days=7`
 
 ### Normalized Response Fields
 Realtime:
@@ -236,6 +254,7 @@ Listing/search:
 
 ### Search and Listing Behavior
 - `/api/stocks/search` and `/api/stocks/list` use KBS listing data as the primary source.
+- `/api/crypto/search` proxies CoinGecko search results for crypto lookup flows.
 - Listing results are cached server-side.
 - If listing fetch fails, the backend falls back to the bundled local symbol list in [server/routes.ts](server/routes.ts).
 
@@ -248,7 +267,14 @@ Listing/search:
 - USD/VND: Vietcombank XML
 - Oil: Yahoo Finance
 - Crypto: CoinGecko
+- US indices: Yahoo Finance chart endpoints consumed directly in Node
 - News: Vietstock RSS
+
+Yahoo Finance note:
+
+- The current code fetches US indices, Brent, and WTI directly from Yahoo Finance JSON endpoints in the Node server.
+- The `yfinance` project is a Python wrapper around Yahoo Finance data and is a reasonable backup candidate for research or failover workflows.
+- `yfinance` is not enabled in production by default because this project is deployed as a Node app on Firebase App Hosting, and the main production stock flow intentionally avoids Python runtime dependencies.
 
 Notes:
 
@@ -288,6 +314,10 @@ firebase deploy --only firestore:rules
 ## Important Files
 - [client/src/lib/firebase.ts](client/src/lib/firebase.ts)
 - [client/src/lib/user-data.ts](client/src/lib/user-data.ts)
+- [client/src/pages/Dashboard.tsx](client/src/pages/Dashboard.tsx)
+- [client/src/pages/PortfolioPage.tsx](client/src/pages/PortfolioPage.tsx)
+- [client/src/pages/StocksPage.tsx](client/src/pages/StocksPage.tsx)
+- [client/src/pages/WatchlistPage.tsx](client/src/pages/WatchlistPage.tsx)
 - [client/src/pages/SettingsPage.tsx](client/src/pages/SettingsPage.tsx)
 - [server/index.ts](server/index.ts)
 - [server/routes.ts](server/routes.ts)

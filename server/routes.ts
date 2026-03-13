@@ -1130,7 +1130,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/prices/indices", async (req, res) => {
     try {
-      const data = await cached(priceCache, "vn_indices", PRICE_TTL, fetchVNIndices);
+      const [vnIndices, usIndices] = await Promise.all([
+        cached(priceCache, "vn_indices", PRICE_TTL, fetchVNIndices),
+        cached(priceCache, "us_indices", PRICE_TTL, fetchUSIndices),
+      ]);
+      const data = {
+        ...vnIndices,
+        ...usIndices,
+      };
       if (!data) return res.status(404).json({ error: "Kh?ng t?m th?y d? li?u c? phi?u" });
       res.json(data);
     } catch (err: any) {

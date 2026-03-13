@@ -183,9 +183,11 @@ function AssetHistoryDialog({
 
 function AssetDetailPanel({
   item,
+  onClose,
   onShowHistory,
 }: {
   item: EnrichedItem;
+  onClose: () => void;
   onShowHistory: () => void;
 }) {
   const formatAssetPrice = (value: number) => {
@@ -612,8 +614,7 @@ export default function PortfolioPage() {
             {formatVnd(Math.abs(totalPricePnl))} ({formatPercent(totalPricePnlPct)})
           </p>
           <p className={cn("text-xs lg:text-sm font-medium mt-1", getChangeColor(totalRoi))}>
-            {totalPricePnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />}
-            ROI: {totalRoi >= 0 ? "+" : "-"}
+            {totalPricePnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />} ROI: {totalRoi >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalRoi))} ({formatPercent(totalRoiPct)})
           </p>
           <p className={cn("text-xs lg:text-sm mt-1", getChangeColor(totalDayPnl))}>
@@ -647,6 +648,7 @@ export default function PortfolioPage() {
           {selectedItem ? (
             <AssetDetailPanel
               item={selectedItem}
+              onClose={() => setSelectedId(null)}
               onShowHistory={() => setHistoryId(selectedItem.id)}
             />
           ) : enriched.length > 0 ? (

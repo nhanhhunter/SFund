@@ -17,12 +17,12 @@ const ALL_INDICES = [
   { symbol: "VNINDEX", name: "VN-Index", description: "Sàn HOSE tổng hợp" },
   { symbol: "HNXINDEX", name: "HNX-Index", description: "Sàn HNX tổng hợp" },
   { symbol: "UPCOMINDEX", name: "UPCOM", description: "Sàn UPCOM tổng hợp" },
-  { symbol: "VN30", name: "VN30", description: "30 cổ phiếu vốn hóa lớn HOSE" },
-  { symbol: "HNX30", name: "HNX30", description: "30 cổ phiếu hàng đầu HNX" },
-  { symbol: "VN100", name: "VN100", description: "100 cổ phiếu hàng đầu HOSE" },
+  { symbol: "^GSPC", name: "S&P 500", description: "Chỉ số vốn hóa lớn của Mỹ" },
+  { symbol: "^DJI", name: "Dow Jones", description: "30 blue-chip công nghiệp Mỹ" },
+  { symbol: "^IXIC", name: "Nasdaq Composite", description: "Chỉ số tổng hợp sàn Nasdaq" },
 ];
 
-const DEFAULT_INDICES = ["VNINDEX", "HNXINDEX", "UPCOMINDEX", "VN30", "HNX30", "VN100"];
+const DEFAULT_INDICES = ["VNINDEX", "HNXINDEX", "UPCOMINDEX", "^GSPC", "^DJI", "^IXIC"];
 const MARKET_REFRESH_INTERVAL = 180_000;
 type Period = "1" | "7" | "30";
 
@@ -306,6 +306,8 @@ export default function StocksPage() {
   const [period, setPeriod] = useState<Period>("7");
   const [selectedItem, setSelectedItem] = useState<{ symbol: string; type: "index" | "stock" } | null>(null);
   const [indices, setIndices] = useLocalStorage<string[]>("vn_indices_pins", DEFAULT_INDICES);
+  const validIndexSymbols = new Set(ALL_INDICES.map((item) => item.symbol));
+  const activeIndices = indices.filter((symbol) => validIndexSymbols.has(symbol));
 
   const { data: indicesData, isLoading: loadingIndices } = useQuery<any>({
     queryKey: ["/api/prices/indices"],
@@ -356,7 +358,7 @@ export default function StocksPage() {
     },
   });
 
-  const marketSource = "KBS";
+  const marketSource = "KBS + Yahoo Finance";
   const lastUpdate = Object.values(indicesData || {}).map((item: any) => item?.lastUpdated).filter(Boolean).sort().at(-1);
   const lastUpdateLabel = lastUpdate ? new Date(lastUpdate).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--";
 
@@ -366,7 +368,7 @@ export default function StocksPage() {
     if (user) queryClient.invalidateQueries({ queryKey: ["watchlist", user.uid] });
   };
 
-  const addIndex = (symbol: string) => setIndices((prev) => (prev.includes(symbol) ? prev : [...prev, symbol]));
+  const addIndex = (symbol: string) => setIndices((prev) => (prev.includes(symbol) ? prev : [...prev.filter((item) => validIndexSymbols.has(item)), symbol]));
   const removeIndex = (symbol: string) => {
     setIndices((prev) => prev.filter((s) => s !== symbol));
     if (selectedItem?.symbol === symbol) setSelectedItem(null);
@@ -390,7 +392,7 @@ export default function StocksPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Thị trường Chứng khoán VN</h1>
+          <h1 className="text-2xl font-bold text-foreground">Thị trường Chứng khoán</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Nguồn: {marketSource} • Cập nhật {lastUpdateLabel} • Tự động mới 3 phút</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
@@ -410,15 +412,15 @@ export default function StocksPage() {
                 </button>
               ))}
             </div>
-            <AddIndexDropdown existing={indices} onAdd={addIndex} />
+            <AddIndexDropdown existing={activeIndices} onAdd={addIndex} />
           </div>
         </div>
 
-        {indices.length === 0 ? (
+        {activeIndices.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm border border-dashed border-border rounded-xl">Chưa có chỉ số nào.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {indices.map((symbol) => {
+            {activeIndices.map((symbol) => {
               const meta = ALL_INDICES.find((i) => i.symbol === symbol) || { name: symbol };
               return (
                 <IndexCard

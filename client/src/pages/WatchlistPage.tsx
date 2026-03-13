@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Star, Plus, Trash2, TrendingUp, TrendingDown, X, ChevronUp, ChevronDown, Search, RefreshCw } from "lucide-react";
-import { VN_STOCK_LIST, CRYPTO_LIST, type WatchlistItem, type InsertWatchlistItem } from "@shared/schema";
+import { Star, Plus, TrendingUp, TrendingDown, X, ChevronUp, ChevronDown, Search, RefreshCw } from "lucide-react";
+import { VN_STOCK_LIST, type WatchlistItem, type InsertWatchlistItem } from "@shared/schema";
 import { queryClient, fetchJson } from "@/lib/queryClient";
 import { addWatchlistItem, listWatchlistItems, removeWatchlistItem } from "@/lib/user-data";
 import { cn, formatCurrency, formatNumber, formatPercent, formatVnd, getChangeBg, getChangeColor, assetTypeLabel } from "@/lib/utils";
@@ -25,7 +25,15 @@ const EX_BADGE: Record<string, string> = {
   UpCOM: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
 };
 
-function StockSearchInput({ value, onChange, onNameChange }: { value: string; onChange: (symbol: string) => void; onNameChange: (name: string) => void; }) {
+function StockSearchInput({
+  value,
+  onChange,
+  onNameChange,
+}: {
+  value: string;
+  onChange: (symbol: string) => void;
+  onNameChange: (name: string) => void;
+}) {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -58,19 +66,29 @@ function StockSearchInput({ value, onChange, onNameChange }: { value: string; on
     <div ref={ref} className="relative">
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-        <Input value={query} onChange={(e) => { setQuery(e.target.value); setOpen(true); onChange(e.target.value.toUpperCase()); }} onFocus={() => setOpen(true)} placeholder="Tìm mã (VD: VNM, FPT...)" className="pl-8 pr-8 uppercase" />
+        <Input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            onChange(e.target.value.toUpperCase());
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Tìm mã (VD: VNM, FPT...)"
+          className="pl-8 pr-8 uppercase"
+        />
       </div>
       {open && query.length >= 1 && (
         <div className="absolute left-0 top-10 z-50 bg-card border border-card-border rounded-xl shadow-lg w-full py-1 max-h-56 overflow-y-auto">
           {isLoading && <p className="text-xs text-muted-foreground px-3 py-2">Đang tìm...</p>}
           {!isLoading && (!results || results.length === 0) && <p className="text-xs text-muted-foreground px-3 py-2">Không tìm thấy cổ phiếu</p>}
-          {results?.map((r) => (
-            <button key={r.symbol} type="button" className="w-full text-left px-3 py-2 hover:bg-muted transition-colors" onClick={() => handleSelect(r.symbol, r.name)}>
+          {results?.map((result) => (
+            <button key={result.symbol} type="button" className="w-full text-left px-3 py-2 hover:bg-muted transition-colors" onClick={() => handleSelect(result.symbol, result.name)}>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-foreground">{r.symbol}</span>
-                {r.exchange && <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", EX_BADGE[r.exchange] || "bg-muted text-muted-foreground")}>{r.exchange}</span>}
+                <span className="text-sm font-bold text-foreground">{result.symbol}</span>
+                {result.exchange ? <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", EX_BADGE[result.exchange] || "bg-muted text-muted-foreground")}>{result.exchange}</span> : null}
               </div>
-              <p className="text-xs text-muted-foreground truncate">{r.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{result.name}</p>
             </button>
           ))}
         </div>
@@ -79,7 +97,79 @@ function StockSearchInput({ value, onChange, onNameChange }: { value: string; on
   );
 }
 
-function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; priceData: any; onClose: () => void; }) {
+function CryptoSearchInput({
+  value,
+  onChange,
+  onNameChange,
+}: {
+  value: string;
+  onChange: (symbol: string) => void;
+  onNameChange: (name: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const { data: results, isLoading } = useQuery<Array<{ id: string; symbol: string; name: string; marketCapRank?: number }>>({
+    queryKey: ["/api/crypto/search", query],
+    queryFn: () => (query.trim().length > 1 ? fetchJson(`/api/crypto/search?q=${encodeURIComponent(query)}`) : Promise.resolve([])),
+    enabled: query.trim().length > 1,
+    staleTime: 30_000,
+  });
+
+  useEffect(() => setQuery(value), [value]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (id: string, name: string) => {
+    setQuery(id);
+    onChange(id);
+    onNameChange(name);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            onChange(e.target.value);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Tìm Bitcoin, Ethereum, Solana..."
+          className="pl-8 pr-8"
+        />
+      </div>
+      {open && query.trim().length > 1 && (
+        <div className="absolute left-0 top-10 z-50 bg-card border border-card-border rounded-xl shadow-lg w-full py-1 max-h-56 overflow-y-auto">
+          {isLoading && <p className="text-xs text-muted-foreground px-3 py-2">Đang tìm...</p>}
+          {!isLoading && (!results || results.length === 0) && <p className="text-xs text-muted-foreground px-3 py-2">Không tìm thấy crypto</p>}
+          {results?.map((coin) => (
+            <button key={coin.id} type="button" className="w-full text-left px-3 py-2 hover:bg-muted transition-colors" onClick={() => handleSelect(coin.id, coin.name)}>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-foreground">{coin.symbol}</span>
+                {coin.marketCapRank ? <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">#{coin.marketCapRank}</span> : null}
+              </div>
+              <p className="text-xs text-muted-foreground truncate">{coin.name}</p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; priceData: any; onClose: () => void }) {
   const [period, setPeriod] = useState<Period>("7");
   const changePercent = item.type === "stock" ? priceData?.changePercent || 0 : item.type === "crypto" ? priceData?.usd_24h_change || 0 : priceData?.changePercent || 0;
   const price = item.type === "stock" ? priceData?.price : item.type === "crypto" ? priceData?.usd : item.type === "gold" ? priceData?.priceVndLuong : priceData?.price;
@@ -101,7 +191,9 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
           </div>
           <p className="text-sm text-muted-foreground">{item.name}</p>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="w-4 h-4 text-muted-foreground" /></button>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+          <X className="w-4 h-4 text-muted-foreground" />
+        </button>
       </div>
 
       <div className="flex items-baseline gap-3 mb-4">
@@ -112,14 +204,16 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
         </span>
       </div>
 
-      {(high || low || volume || change !== null || marketCap) ? (
+      {high || low || volume || change !== null || marketCap ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 text-xs">
-          {change !== null && change !== undefined && (
+          {change !== null && change !== undefined ? (
             <div className="bg-muted/50 rounded-lg px-2 py-1.5">
               <p className="text-muted-foreground">Thay đổi</p>
-              <p className={cn("font-bold", getChangeColor(change))}>{item.type === "stock" ? `${change >= 0 ? "+" : "-"}${formatVnd(Math.abs(change))}` : `${change >= 0 ? "+" : ""}${change}`}</p>
+              <p className={cn("font-bold", getChangeColor(change))}>
+                {item.type === "stock" ? `${change >= 0 ? "+" : "-"}${formatVnd(Math.abs(change))}` : `${change >= 0 ? "+" : ""}${change}`}
+              </p>
             </div>
-          )}
+          ) : null}
           {high ? <div className="bg-muted/50 rounded-lg px-2 py-1.5"><p className="text-muted-foreground">Cao nhất</p><p className="font-bold">{formatVnd(high)}</p></div> : null}
           {low ? <div className="bg-muted/50 rounded-lg px-2 py-1.5"><p className="text-muted-foreground">Thấp nhất</p><p className="font-bold">{formatVnd(low)}</p></div> : null}
           {volume ? <div className="bg-muted/50 rounded-lg px-2 py-1.5"><p className="text-muted-foreground">Khối lượng</p><p className="font-bold">{formatNumber(volume, { maximumFractionDigits: 0 })}</p></div> : null}
@@ -129,7 +223,9 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
 
       <div className="flex items-center gap-1 mb-3">
         {(["1", "7", "30"] as Period[]).map((p) => (
-          <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 text-xs font-medium rounded-lg transition-colors", period === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}>{p === "1" ? "1N" : p === "7" ? "7N" : "30N"}</button>
+          <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 text-xs font-medium rounded-lg transition-colors", period === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}>
+            {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+          </button>
         ))}
       </div>
 
@@ -154,29 +250,38 @@ export default function WatchlistPage() {
   });
 
   const { data: vnPrices } = useQuery<Record<string, any>>({
-    queryKey: ["/api/prices/vn-batch", watchlist?.map((w) => w.symbol).join(",")],
+    queryKey: ["/api/prices/vn-batch", watchlist?.map((item) => item.symbol).join(",")],
     queryFn: () => {
-      const syms = (watchlist || []).filter((w) => w.type === "stock").map((w) => w.symbol).join(",");
-      if (!syms) return Promise.resolve({});
-      return fetchJson(`/api/prices/vn-batch?symbols=${syms}`);
+      const symbols = (watchlist || []).filter((item) => item.type === "stock").map((item) => item.symbol).join(",");
+      if (!symbols) return Promise.resolve({});
+      return fetchJson(`/api/prices/vn-batch?symbols=${symbols}`);
     },
-    enabled: !!watchlist?.some((w) => w.type === "stock"),
+    enabled: !!watchlist?.some((item) => item.type === "stock"),
     refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
   const { data: cryptoPrices } = useQuery<Record<string, any>>({
-    queryKey: ["/api/prices/crypto", watchlist?.map((w) => w.symbol).join(",")],
+    queryKey: ["/api/prices/crypto", watchlist?.map((item) => item.symbol).join(",")],
     queryFn: () => {
-      const ids = (watchlist || []).filter((w) => w.type === "crypto").map((w) => w.symbol).join(",");
+      const ids = (watchlist || []).filter((item) => item.type === "crypto").map((item) => item.symbol).join(",");
       if (!ids) return Promise.resolve({});
       return fetchJson(`/api/prices/crypto?ids=${ids}`);
     },
-    enabled: !!watchlist?.some((w) => w.type === "crypto"),
+    enabled: !!watchlist?.some((item) => item.type === "crypto"),
     refetchInterval: MARKET_REFRESH_INTERVAL,
   });
 
-  const { data: goldData } = useQuery<any>({ queryKey: ["/api/prices/gold"], queryFn: () => fetchJson("/api/prices/gold"), refetchInterval: MARKET_REFRESH_INTERVAL });
-  const { data: oilData } = useQuery<any>({ queryKey: ["/api/prices/oil"], queryFn: () => fetchJson("/api/prices/oil"), refetchInterval: MARKET_REFRESH_INTERVAL });
+  const { data: goldData } = useQuery<any>({
+    queryKey: ["/api/prices/gold"],
+    queryFn: () => fetchJson("/api/prices/gold"),
+    refetchInterval: MARKET_REFRESH_INTERVAL,
+  });
+
+  const { data: oilData } = useQuery<any>({
+    queryKey: ["/api/prices/oil"],
+    queryFn: () => fetchJson("/api/prices/oil"),
+    refetchInterval: MARKET_REFRESH_INTERVAL,
+  });
 
   const addMutation = useMutation({
     mutationFn: async (item: InsertWatchlistItem) => {
@@ -209,7 +314,15 @@ export default function WatchlistPage() {
   const getPrice = (item: WatchlistItem) => {
     if (item.type === "stock") return vnPrices?.[item.symbol];
     if (item.type === "crypto") return cryptoPrices?.[item.symbol];
-    if (item.type === "gold") return goldData?.XAU;
+    if (item.type === "gold") {
+      if (item.symbol === "SJC_VND") {
+        return { priceVndLuong: goldData?.SJC?.sell || 0, change: 0, changePercent: 0 };
+      }
+      if (item.symbol === "NHAN_VND") {
+        return { priceVndLuong: goldData?.NHAN9999?.sell || 0, change: 0, changePercent: 0 };
+      }
+      return goldData?.XAU;
+    }
     if (item.type === "oil") return item.symbol === "BRENT" ? oilData?.BRENT : oilData?.WTI;
     return null;
   };
@@ -238,11 +351,16 @@ export default function WatchlistPage() {
 
     let name = addSymbol;
     if (addType === "stock") {
-      name = addName || VN_STOCK_LIST.find((s) => s.symbol === addSymbol)?.name || addSymbol;
+      name = addName || VN_STOCK_LIST.find((item) => item.symbol === addSymbol)?.name || addSymbol;
     } else if (addType === "crypto") {
-      name = CRYPTO_LIST.find((c) => c.symbol === addSymbol)?.name || addSymbol;
+      name = addName || addSymbol;
     } else if (addType === "gold") {
-      name = "Vàng 24K";
+      name =
+        addSymbol === "XAU"
+          ? "Vàng thế giới (XAU/USD)"
+          : addSymbol === "SJC_VND"
+            ? "Vàng SJC 9999"
+            : "Vàng Nhẫn SJC";
     } else if (addType === "oil") {
       name = addSymbol === "BRENT" ? "Dầu Brent" : "Dầu WTI";
     }
@@ -258,7 +376,12 @@ export default function WatchlistPage() {
   };
 
   if (loading) {
-    return <div className="max-w-6xl mx-auto px-4 py-6 space-y-4"><Skeleton className="h-20 rounded-2xl" /><Skeleton className="h-96 rounded-2xl" /></div>;
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+        <Skeleton className="h-20 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
+      </div>
+    );
   }
 
   if (!user) {
@@ -298,7 +421,7 @@ export default function WatchlistPage() {
                         <div className="flex items-center gap-2"><span className="font-bold text-sm text-foreground">{item.symbol.toUpperCase()}</span><span className="text-xs px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{assetTypeLabel(item.type)}</span></div>
                         <p className="text-xs text-muted-foreground mt-0.5">{item.name}</p>
                       </div>
-                      <button onClick={(e) => { e.stopPropagation(); removeMutation.mutate(item.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); removeMutation.mutate(item.id); }} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
                     </div>
 
                     <div className="flex items-end justify-between mb-2">
@@ -318,7 +441,7 @@ export default function WatchlistPage() {
           </div>
 
           {expandedId && (() => {
-            const item = watchlist.find((w) => w.id === expandedId);
+            const item = watchlist.find((watchItem) => watchItem.id === expandedId);
             if (!item) return null;
             return <DetailDrawer key={expandedId} item={item} priceData={getPrice(item)} onClose={() => setExpandedId(null)} />;
           })()}
@@ -343,12 +466,27 @@ export default function WatchlistPage() {
             </div>
             <div>
               <Label className="text-sm mb-2 block">Tài sản</Label>
-              {addType === "stock" ? <StockSearchInput value={addSymbol} onChange={setAddSymbol} onNameChange={setAddName} /> : addType === "crypto" ? (
-                <Select value={addSymbol} onValueChange={setAddSymbol}><SelectTrigger><SelectValue placeholder="Chọn coin" /></SelectTrigger><SelectContent>{CRYPTO_LIST.map((c) => <SelectItem key={c.symbol} value={c.symbol}>{c.ticker} - {c.name}</SelectItem>)}</SelectContent></Select>
+              {addType === "stock" ? (
+                <StockSearchInput value={addSymbol} onChange={setAddSymbol} onNameChange={setAddName} />
+              ) : addType === "crypto" ? (
+                <CryptoSearchInput value={addSymbol} onChange={setAddSymbol} onNameChange={setAddName} />
               ) : addType === "gold" ? (
-                <Select value={addSymbol} onValueChange={setAddSymbol}><SelectTrigger><SelectValue placeholder="Loại vàng" /></SelectTrigger><SelectContent><SelectItem value="XAU">Vàng 24K</SelectItem></SelectContent></Select>
+                <Select value={addSymbol} onValueChange={setAddSymbol}>
+                  <SelectTrigger><SelectValue placeholder="Loại vàng" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="XAU">Vàng thế giới (XAU/USD)</SelectItem>
+                    <SelectItem value="SJC_VND">Vàng SJC 9999</SelectItem>
+                    <SelectItem value="NHAN_VND">Vàng Nhẫn SJC</SelectItem>
+                  </SelectContent>
+                </Select>
               ) : (
-                <Select value={addSymbol} onValueChange={setAddSymbol}><SelectTrigger><SelectValue placeholder="Loại dầu" /></SelectTrigger><SelectContent><SelectItem value="WTI">WTI Crude</SelectItem><SelectItem value="BRENT">Brent Crude</SelectItem></SelectContent></Select>
+                <Select value={addSymbol} onValueChange={setAddSymbol}>
+                  <SelectTrigger><SelectValue placeholder="Loại dầu" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BRENT">Brent Crude</SelectItem>
+                    <SelectItem value="WTI">WTI Crude</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
             </div>
             <div className="flex gap-2 justify-end"><Button variant="outline" onClick={() => setAddOpen(false)}>Hủy</Button><Button onClick={handleAddSubmit} disabled={!addSymbol || addMutation.isPending}>{addMutation.isPending ? "Đang thêm..." : "Thêm vào danh sách"}</Button></div>
