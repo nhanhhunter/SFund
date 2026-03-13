@@ -22,8 +22,8 @@ const ALL_INDEX_CARDS = [
 const ALL_COMMODITY_CARDS = [
   { key: "gold_usd", label: "Vàng (USD/Oz)", symbol: "XAU", type: "gold" as const },
   { key: "gold_vnd", label: "Vàng SJC 9999", symbol: "SJC_VND", type: "gold" as const },
-  { key: "brent", label: "Dầu Brent (USD/bbl)", symbol: "BRENT", type: "oil" as const },
-  { key: "wti", label: "Dầu WTI (USD/bbl)", symbol: "WTI", type: "oil" as const },
+  { key: "brent", label: "Dầu Brent (USD/thùng)", symbol: "BRENT", type: "oil" as const },
+  { key: "wti", label: "Dầu WTI (USD/thùng)", symbol: "WTI", type: "oil" as const },
 ];
 
 const DEFAULT_INDEX_CARD_KEYS = ["vnIndex", "hnxIndex", "upcom", "sp500", "dowJones", "nasdaqComposite"];
@@ -372,7 +372,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Tổng quan thị trường</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Nguồn: KBS, Yahoo Finance • Cập nhật lúc {lastUpdate}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={refresh} className="gap-2">

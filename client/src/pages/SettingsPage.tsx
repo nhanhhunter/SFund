@@ -419,7 +419,7 @@ export default function SettingsPage() {
               ) : (
                 <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground">
                   Tài khoản này đang dùng tùy chọn đăng nhập khác. Nếu bạn đăng nhập bằng Google, hãy quản lý mật khẩu
-                  trực tiếp trong tài khoản Google của mình.
+                  trực tiếp trong tài khoản Google của mình nhé!
                 </div>
               )}
             </div>
@@ -433,7 +433,7 @@ export default function SettingsPage() {
                 Bạn có toàn quyền đối với dữ liệu của mình. Hành động này sẽ xóa toàn bộ dữ liệu của bạn.
               </p>
               <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-                Xóa dữ liệu- Không thể khôi phục
+                Xóa dữ liệu - Không thể khôi phục
               </Button>
             </div>
 
@@ -464,7 +464,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted-foreground">Số điện thoại Momo</p>
                     <p className="text-lg font-semibold tracking-wide text-foreground">0906.953.436</p>
                     <p className="text-sm text-muted-foreground">
-                      Cảm ơn bạn đã sử dụng ứng dụng và hỗ trợ chi phí tên miền, hosting, API cho SFund.
+                      Cảm ơn bạn đã sử dụng ứng dụng và hỗ trợ SFund.
                     </p>
                   </div>
                 </div>

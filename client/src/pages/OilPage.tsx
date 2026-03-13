@@ -36,7 +36,7 @@ export default function OilPage() {
 
   const { data, isLoading, dataUpdatedAt } = useQuery<any>({
     queryKey: ["/api/prices/oil"],
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
   });
 
   const wti = data?.WTI;
@@ -50,7 +50,7 @@ export default function OilPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Dầu thô</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · 60 giây/lần</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Nguồn: Yahoo Finance, Baomoi/webgia.com · Làm mới mỗi 3 phút</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
           <RefreshCw className="w-3.5 h-3.5" />
@@ -60,26 +60,8 @@ export default function OilPage() {
 
       {/* Hero cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 dark:from-slate-900/50 dark:to-blue-950/20 border border-slate-200 dark:border-slate-700/40 rounded-2xl p-6">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">WTI Crude · USD/bbl</p>
-          {isLoading ? <Skeleton className="h-12 w-40" /> : (
-            <>
-              <p className="text-4xl font-bold text-slate-900 dark:text-slate-100">
-                ${wti?.price?.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "--"}
-              </p>
-              <p className={cn("text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(wti?.changePercent || 0))}>
-                {(wti?.changePercent || 0) >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {wti ? formatPercent(wti.changePercent) : "--"} hôm nay
-              </p>
-              <p className={cn("text-xs mt-0.5", getChangeColor(wti?.change || 0))}>
-                {wti?.change ? `${wti.change >= 0 ? "+" : ""}${wti.change.toFixed(2)} USD` : ""}
-              </p>
-            </>
-          )}
-        </div>
-
         <div className="bg-gradient-to-br from-stone-50 to-orange-50/40 dark:from-stone-900/50 dark:to-orange-950/20 border border-stone-200 dark:border-stone-700/40 rounded-2xl p-6">
-          <p className="text-sm font-medium text-stone-600 dark:text-stone-400 mb-2">Brent Crude · USD/bbl</p>
+          <p className="text-sm font-medium text-stone-600 dark:text-stone-400 mb-2">Brent Crude · USD/thùng</p>
           {isLoading ? <Skeleton className="h-12 w-40" /> : (
             <>
               <p className="text-4xl font-bold text-stone-900 dark:text-stone-100">
@@ -95,6 +77,24 @@ export default function OilPage() {
             </>
           )}
         </div>
+
+        <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 dark:from-slate-900/50 dark:to-blue-950/20 border border-slate-200 dark:border-slate-700/40 rounded-2xl p-6">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">WTI Crude · USD/thùng</p>
+          {isLoading ? <Skeleton className="h-12 w-40" /> : (
+            <>
+              <p className="text-4xl font-bold text-slate-900 dark:text-slate-100">
+                ${wti?.price?.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "--"}
+              </p>
+              <p className={cn("text-sm font-medium mt-1 flex items-center gap-1", getChangeColor(wti?.changePercent || 0))}>
+                {(wti?.changePercent || 0) >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                {wti ? formatPercent(wti.changePercent) : "--"} hôm nay
+              </p>
+              <p className={cn("text-xs mt-0.5", getChangeColor(wti?.change || 0))}>
+                {wti?.change ? `${wti.change >= 0 ? "+" : ""}${wti.change.toFixed(2)} USD` : ""}
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Spread info */}
@@ -106,14 +106,16 @@ export default function OilPage() {
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">WTI (VND/lít)</p>
           <p className="text-base font-bold">{wti ? `${formatNumber(Math.round((wti.price / 158.987) * 26200), { maximumFractionDigits: 0 })}đ` : "--"}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Công thức: WTI USD/thùng ÷ 158.987 × 26,200</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Thị trường</p>
           <p className="text-base font-bold text-emerald-600">Đang mở</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">Sàn giao dịch</p>
-          <p className="text-base font-bold">NYMEX · ICE</p>
+          <p className="text-xs text-muted-foreground mb-1">Xăng RON 95-V (Vùng 1)</p>
+          <p className="text-base font-bold">{data?.domesticRetail?.ron95vV1 ? `${formatNumber(data.domesticRetail.ron95vV1, { maximumFractionDigits: 0 })}đ/lít` : "--"}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Nguồn: Baomoi/webgia.com</p>
         </div>
       </div>
 
@@ -122,7 +124,7 @@ export default function OilPage() {
         <div className="lg:col-span-2 space-y-5">
           <div className="bg-card border border-card-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Biểu đồ WTI (USD/bbl)</h3>
+              <h3 className="text-sm font-semibold">Biểu đồ WTI (USD/thùng)</h3>
               <PeriodSelector value={wtiPeriod} onChange={setWtiPeriod} />
             </div>
             <PriceChart
@@ -136,7 +138,7 @@ export default function OilPage() {
           </div>
           <div className="bg-card border border-card-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Biểu đồ Brent (USD/bbl)</h3>
+              <h3 className="text-sm font-semibold">Biểu đồ Brent (USD/thùng)</h3>
               <PeriodSelector value={brentPeriod} onChange={setBrentPeriod} />
             </div>
             <PriceChart

@@ -156,7 +156,7 @@ export default function CryptoPage() {
     queryKey: ["/api/prices/crypto", ids],
     queryFn: () => (ids ? fetchJson(`/api/prices/crypto?ids=${ids}`) : Promise.resolve({})),
     enabled: !!ids,
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
   });
 
   const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("vi-VN") : "--";
@@ -186,7 +186,7 @@ export default function CryptoPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Tiền điện tử</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · 60 giây/lần</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Nguồn: CoinGecko · Làm mới mỗi 3 phút</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowSearch(true)}>

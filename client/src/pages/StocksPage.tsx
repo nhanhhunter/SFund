@@ -288,12 +288,15 @@ function DetailPanel({ item, type, onClose }: { item: { symbol: string; name?: s
         </span>
       </div>
 
-      <div className="flex items-center gap-1 mb-3">
-        {(["1", "7", "30"] as Period[]).map((p) => (
-          <button key={p} onClick={() => setLocalPeriod(p)} className={cn("px-3 py-1 text-xs font-medium rounded-lg transition-colors", localPeriod === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}>
-            {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
-          </button>
-        ))}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-foreground">Biểu đồ giá</p>
+        <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+          {(["1", "7", "30"] as Period[]).map((p) => (
+            <button key={p} onClick={() => setLocalPeriod(p)} className={cn("px-2.5 py-1 text-xs font-medium rounded-md transition-colors", localPeriod === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <PriceChart type={type} symbol={item.symbol} days={localPeriod === "1" ? 1 : localPeriod === "7" ? 7 : 30} currentPrice={price || undefined} height={200} />

@@ -66,6 +66,70 @@ function buildDividend(amount = 0, receivedAt?: string) {
   };
 }
 
+function sanitizeFormattedNumberInput(value: string) {
+  const stripped = value.replace(/,/g, "").replace(/[^\d.]/g, "");
+  const [integerPart = "", ...fractionParts] = stripped.split(".");
+  return {
+    integerPart,
+    fractionPart: fractionParts.join(""),
+    hasTrailingDot: stripped.endsWith("."),
+  };
+}
+
+function formatEditableNumber(value: number | string | undefined) {
+  if (value === undefined || value === null || value === "") return "";
+  const raw = typeof value === "number" ? value.toString() : value;
+  const { integerPart, fractionPart, hasTrailingDot } = sanitizeFormattedNumberInput(raw);
+  const normalizedInteger = integerPart.replace(/^0+(?=\d)/, "") || "0";
+  const groupedInteger = normalizedInteger.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+  if (hasTrailingDot) return `${groupedInteger}.`;
+  if (fractionPart) return `${groupedInteger}.${fractionPart}`;
+  return groupedInteger;
+}
+
+function parseFormattedNumber(value: string) {
+  const { integerPart, fractionPart } = sanitizeFormattedNumberInput(value);
+  if (!integerPart && !fractionPart) return 0;
+  const normalized = fractionPart ? `${integerPart || "0"}.${fractionPart}` : integerPart || "0";
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatHoldingQuantity(value: number) {
+  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function FormattedNumberInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: number | string | undefined;
+  onChange: (value: number) => void;
+  placeholder?: string;
+}) {
+  const [displayValue, setDisplayValue] = useState(() => formatEditableNumber(value));
+
+  useEffect(() => {
+    setDisplayValue(formatEditableNumber(value));
+  }, [value]);
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={displayValue}
+      onChange={(event) => {
+        const nextDisplay = formatEditableNumber(event.target.value);
+        setDisplayValue(nextDisplay);
+        onChange(parseFormattedNumber(event.target.value));
+      }}
+    />
+  );
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -446,14 +510,14 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
               <div className="rounded-xl border border-card-border bg-muted/30 px-3 py-2">
                 <p className="text-xs text-muted-foreground">Tổng hợp tự động</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
-                  {(purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0)} đơn vị
+                  {formatHoldingQuantity((purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0))} đơn vị
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Giá mua TB {assetCurrency === "USD" ? "$" : "đ"}{" "}
                   {(
                     (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0) * (Number(lot?.price) || 0), 0) /
                     Math.max(1, (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0))
-                  ).toLocaleString("vi-VN", { maximumFractionDigits: assetCurrency === "USD" ? 2 : 0 })}
+                  ).toLocaleString("en-US", { maximumFractionDigits: assetCurrency === "USD" ? 2 : 0 })}
                 </p>
               </div>
             </div>
@@ -485,7 +549,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                       <FormItem>
                         <FormLabel className="text-xs">Số lượng</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" placeholder="0" {...field} />
+                          <FormattedNumberInput value={field.value} onChange={field.onChange} placeholder="0" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -498,7 +562,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                       <FormItem>
                         <FormLabel className="text-xs">Giá ({assetCurrency === "USD" ? "$" : "đ"})</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" placeholder="0" {...field} />
+                          <FormattedNumberInput value={field.value} onChange={field.onChange} placeholder="0" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -564,7 +628,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                         <FormItem>
                           <FormLabel className="text-xs">Số cổ tức ({assetCurrency === "USD" ? "$" : "đ"})</FormLabel>
                           <FormControl>
-                            <Input type="number" step="any" placeholder="0" {...field} />
+                            <FormattedNumberInput value={field.value} onChange={field.onChange} placeholder="0" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

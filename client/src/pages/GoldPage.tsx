@@ -219,7 +219,7 @@ export default function GoldPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Vàng</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Cập nhật lúc {lastUpdate} · Thế giới {worldUpdated} · Việt Nam {vietnamUpdated} · Nguồn: vang.today, {fxSource} · Tự động mới 3 phút
+            Cập nhật lúc {lastUpdate} · Thế giới {worldUpdated} · Việt Nam {vietnamUpdated} · Nguồn: vang.today, {fxSource} · Làm mới mỗi 3 phút
           </p>
         </div>
         <div className="flex gap-2">
@@ -244,7 +244,7 @@ export default function GoldPage() {
           ) : (
             <>
               <p className="text-4xl font-bold text-amber-900 dark:text-amber-100">${fmtUsd(usdOz)}</p>
-              <p className="mt-0.5 text-sm text-amber-700 dark:text-amber-300">per ounce</p>
+              <p className="mt-0.5 text-sm text-amber-700 dark:text-amber-300">mỗi ounce</p>
               <p className={cn("mt-2 flex items-center gap-1 text-sm font-medium", getChangeColor(gold?.changePercent || 0))}>
                 {(gold?.changePercent || 0) >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                 {gold ? formatPercent(gold.changePercent) : "--"} hôm nay
@@ -255,11 +255,11 @@ export default function GoldPage() {
             <div>
               <p className="text-amber-600 dark:text-amber-400">Tỷ giá USD/VND</p>
               <p className="font-bold text-amber-800 dark:text-amber-200">
-                {formatNumber(usdToVnd, { maximumFractionDigits: 0 })} (VCB bán ra)
+                {formatNumber(usdToVnd, { maximumFractionDigits: 0 })}
               </p>
             </div>
             <div>
-              <p className="text-amber-600 dark:text-amber-400">Giá quy đổi</p>
+              <p className="text-amber-600 dark:text-amber-400">Giá quy đổi mỗi lượng</p>
               <p className="font-bold text-amber-800 dark:text-amber-200">{formatVnd(convertedWorldPrice)}</p>
             </div>
           </div>
@@ -338,6 +338,15 @@ export default function GoldPage() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-xl border border-card-border bg-card p-3">
+          <p className="mb-1 text-xs text-muted-foreground">Thay đổi 24h XAU</p>
+          <p className={cn("text-base font-bold", getChangeColor(gold?.changeUsdOz || 0))}>
+            {gold ? `${gold.changeUsdOz >= 0 ? "+$" : "-$"}${fmtUsd(Math.abs(gold.changeUsdOz))} / oz` : "--"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {gold ? `${gold.change >= 0 ? "+" : ""}${formatNumber(Math.abs(gold.change), { maximumFractionDigits: 0 })} đ/lượng` : ""}
+          </p>
+        </div>
+        <div className="rounded-xl border border-card-border bg-card p-3">
           <p className="mb-1 text-xs text-muted-foreground">Chênh lệch SJC 9999</p>
           <p className={cn("text-base font-bold", getChangeColor(sjcSpread))}>
             {sjcSpread >= 0 ? "+" : ""}
@@ -354,21 +363,11 @@ export default function GoldPage() {
           <p className="text-xs text-muted-foreground">{nhanSpreadPct.toFixed(1)}% so với quy đổi</p>
         </div>
         <div className="rounded-xl border border-card-border bg-card p-3">
-          <p className="mb-1 text-xs text-muted-foreground">USD/VND (VCB)</p>
+          <p className="mb-1 text-xs text-muted-foreground">USD/VND</p>
           <p className="text-base font-bold">{formatNumber(usdToVnd, { maximumFractionDigits: 0 })}</p>
-          <p className="text-xs text-muted-foreground">Tỷ giá bán ra</p>
-        </div>
-        <div className="rounded-xl border border-card-border bg-card p-3">
-          <p className="mb-1 text-xs text-muted-foreground">Thay đổi 24h XAU</p>
-          <p className={cn("text-base font-bold", getChangeColor(gold?.changeUsdOz || 0))}>
-            {gold ? `${gold.changeUsdOz >= 0 ? "+$" : "-$"}${fmtUsd(Math.abs(gold.changeUsdOz))} / oz` : "--"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {gold ? `${gold.change >= 0 ? "+" : ""}${formatNumber(Math.abs(gold.change), { maximumFractionDigits: 0 })} đ/lượng` : ""}
-          </p>
+          <p className="text-xs text-muted-foreground">Tỷ giá VCB bán ra</p>
         </div>
       </div>
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="rounded-xl border border-card-border bg-card p-4">

@@ -574,9 +574,10 @@ async function fetchGoldPrice() {
 
 async function fetchOilPrice() {
   try {
-    const [wtiData, brentData] = await Promise.all([
+    const [wtiData, brentData, domesticRetail] = await Promise.all([
       fetchJson("https://query1.finance.yahoo.com/v8/finance/chart/CL=F?range=2d&interval=1d"),
       fetchJson("https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?range=2d&interval=1d"),
+      fetchVietnamFuelRetailPrices(),
     ]);
 
     const wtiMeta = wtiData?.chart?.result?.[0]?.meta;
@@ -605,11 +606,43 @@ async function fetchOilPrice() {
         currency: "USD",
         lastUpdated: new Date().toISOString(),
       },
+      domesticRetail,
     };
   } catch {
     return {
       WTI: { price: 77.5, change: -0.3, changePercent: -0.39, currency: "USD", lastUpdated: new Date().toISOString() },
       BRENT: { price: 81.2, change: -0.25, changePercent: -0.31, currency: "USD", lastUpdated: new Date().toISOString() },
+      domesticRetail: {
+        ron95vV1: null,
+        ron95vV2: null,
+        source: "Baomoi/webgia.com",
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+  }
+}
+
+async function fetchVietnamFuelRetailPrices() {
+  try {
+    const html = await fetchText("https://baomoi.com/tien-ich-gia-xang-dau.epi", {
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    });
+    const normalized = html.replace(/\s+/g, " ");
+    const updatedAt = normalized.match(/Giá Xăng dầu Ngày ([0-9-]+ [0-9:]+)/i)?.[1] || null;
+    const ron95Row = normalized.match(/Xăng RON 95-V\s+([0-9,]+)\s+([0-9,]+)/i);
+
+    return {
+      ron95vV1: ron95Row ? Number(ron95Row[1].replace(/,/g, "")) : null,
+      ron95vV2: ron95Row ? Number(ron95Row[2].replace(/,/g, "")) : null,
+      source: "Baomoi/webgia.com",
+      lastUpdated: updatedAt ? new Date(updatedAt.replace(" ", "T") + "+07:00").toISOString() : new Date().toISOString(),
+    };
+  } catch {
+    return {
+      ron95vV1: null,
+      ron95vV2: null,
+      source: "Baomoi/webgia.com",
+      lastUpdated: new Date().toISOString(),
     };
   }
 }

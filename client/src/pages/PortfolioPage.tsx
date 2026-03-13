@@ -99,6 +99,10 @@ function formatDividendMoney(value: number, currency: AssetCurrency) {
   return currency === "VND" ? formatVnd(Math.round(value)) : formatCurrency(Number(value.toFixed(2)));
 }
 
+function formatHoldingQuantity(value: number) {
+  return formatNumber(value, { maximumFractionDigits: 4 });
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -136,7 +140,7 @@ function AssetHistoryDialog({
                   <div key={`${lot.boughtAt}-${index}`} className="grid grid-cols-3 gap-2 rounded-lg border border-card-border p-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Số lượng</p>
-                      <p className="font-medium text-foreground">{lot.quantity}</p>
+                      <p className="font-medium text-foreground">{formatHoldingQuantity(lot.quantity)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Giá mua</p>
@@ -232,7 +236,7 @@ function AssetDetailPanel({
         </div>
         <div>
           <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
-          <p className="font-bold text-sm text-foreground">{item.quantity}</p>
+          <p className="font-bold text-sm text-foreground">{formatHoldingQuantity(item.quantity)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground mb-0.5">Lãi/Lỗ</p>
@@ -588,12 +592,12 @@ export default function PortfolioPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={refreshMarketData} className="gap-2">
-            <RefreshCw className="w-4 h-4" />
+          <Button variant="outline" size="sm" onClick={refreshMarketData} className="gap-2">
+            <RefreshCw className="w-3.5 h-3.5" />
             Làm mới
           </Button>
-          <Button onClick={() => setAddOpen(true)} data-testid="button-add-portfolio" className="gap-2">
-            <Plus className="w-4 h-4" />
+          <Button size="sm" onClick={() => setAddOpen(true)} data-testid="button-add-portfolio" className="gap-2">
+            <Plus className="w-3.5 h-3.5" />
             Thêm tài sản
           </Button>
         </div>
@@ -766,7 +770,7 @@ export default function PortfolioPage() {
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.quantity} × {formatMoney(item.avgBuyPrice, item.currency)}
+                        {formatHoldingQuantity(item.quantity)} × {formatMoney(item.avgBuyPrice, item.currency)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
