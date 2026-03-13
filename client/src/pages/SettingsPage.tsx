@@ -18,7 +18,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { AVATAR_OPTIONS, type AvatarOptionId } from "@/lib/avatar-options";
 import { deleteAllUserData } from "@/lib/user-data";
+import { cn } from "@/lib/utils";
 import momoQrImage from "../../../attached_assets/momoQR.jpg";
 
 const MENU_ITEMS = [
@@ -42,8 +44,6 @@ const MINI_CHART_PERIOD_OPTIONS: Array<{ value: MiniChartPeriodPreference; label
   { value: "7", label: "7N" },
   { value: "30", label: "30N" },
 ];
-
-const AVATAR_OPTIONS = ["👨", "👩", "👨‍💼", "👩‍💼", "🧑"];
 
 export default function SettingsPage() {
   const { user, loading, updateDisplayName, changePassword, deleteAccount } = useAuth();
@@ -234,19 +234,40 @@ export default function SettingsPage() {
 
             <div className="space-y-2">
               <Label>Icon đại diện</Label>
-              <div className="flex flex-wrap gap-2">
-                {AVATAR_OPTIONS.map((avatar) => (
-                  <Button
-                    key={avatar}
-                    type="button"
-                    variant={preferences.avatar === avatar ? "default" : "outline"}
-                    className="h-11 w-11 rounded-2xl p-0 text-lg"
-                    onClick={() => void updatePreferences({ avatar })}
-                  >
-                    {avatar}
-                  </Button>
-                ))}
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {AVATAR_OPTIONS.map((avatar) => {
+                  const Icon = avatar.icon;
+                  const selected = preferences.avatar === avatar.id;
+                  const isLocked = avatar.locked;
+
+                  return (
+                    <Button
+                      key={avatar.id}
+                      type="button"
+                      variant={selected ? "default" : "outline"}
+                      disabled={isLocked}
+                      className={cn(
+                        "relative h-auto min-h-24 flex-col gap-2 rounded-2xl px-3 py-4",
+                        isLocked && "cursor-not-allowed opacity-45",
+                      )}
+                      onClick={() => {
+                        if (!isLocked) {
+                          void updatePreferences({ avatar: avatar.id as AvatarOptionId });
+                        }
+                      }}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-xs font-medium">{avatar.label}</span>
+                      {isLocked && (
+                        <span className="absolute right-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                          VIP
+                        </span>
+                      )}
+                    </Button>
+                  );
+                })}
               </div>
+              <p className="text-xs text-muted-foreground">Icon VIP đang hiển thị để xem trước và sẽ mở khóa ở gói nâng cao.</p>
             </div>
 
             <Button onClick={() => void handleSaveProfile()} disabled={savingProfile || !displayName.trim()}>

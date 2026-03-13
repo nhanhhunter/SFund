@@ -18,6 +18,7 @@ import {
   type PortfolioItem,
   type WatchlistItem,
 } from "@shared/schema";
+import { AVATAR_CHOICES, type AvatarOptionId } from "@/lib/avatar-options";
 import { db } from "@/lib/firebase";
 
 export type ThemePreference = "light" | "dark";
@@ -31,7 +32,7 @@ export type UserPreferences = {
   menuOrder: string[];
   hiddenMenuItems: string[];
   displayName: string;
-  avatar: string;
+  avatar: AvatarOptionId;
   updatedAt: string;
 };
 
@@ -44,8 +45,6 @@ export const DEFAULT_NAV_ORDER = [
   "/oil",
   "/crypto",
 ] as const;
-
-export const AVATAR_CHOICES = ["🧭", "📈", "💼", "🚀", "🛡️"] as const;
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: "light",

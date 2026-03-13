@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeAvatarChoice } from "@/lib/avatar-options";
 import {
   DEFAULT_NAV_ORDER,
   DEFAULT_USER_PREFERENCES,
@@ -44,6 +45,7 @@ function normalizePreferences(
     ...DEFAULT_USER_PREFERENCES,
     ...raw,
     displayName: raw?.displayName?.trim() || fallbackName,
+    avatar: normalizeAvatarChoice(raw?.avatar),
     menuOrder,
     hiddenMenuItems,
     updatedAt: raw?.updatedAt || new Date().toISOString(),

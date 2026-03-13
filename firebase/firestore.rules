@@ -30,6 +30,19 @@ service cloud.firestore {
       return currency in ['VND', 'USD'];
     }
 
+    function validAvatar(avatar) {
+      return avatar in [
+        'compass',
+        'trend-up',
+        'briefcase',
+        'rocket',
+        'shield',
+        'wallet',
+        'gem',
+        'landmark',
+      ];
+    }
+
     function validPortfolioItem() {
       return hasOnlyKeys([
           'id',
@@ -88,7 +101,7 @@ service cloud.firestore {
         request.resource.data.menuOrder is list &&
         request.resource.data.hiddenMenuItems is list &&
         request.resource.data.displayName is string &&
-        request.resource.data.avatar is string &&
+        validAvatar(request.resource.data.avatar) &&
         request.resource.data.updatedAt is string;
     }
 

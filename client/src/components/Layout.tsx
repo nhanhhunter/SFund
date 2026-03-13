@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getAvatarOption } from "@/lib/avatar-options";
 import { cn } from "@/lib/utils";
 
 type NavItemDef = { href: string; label: string; icon: ComponentType<{ className?: string }> };
@@ -54,6 +55,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const displayName =
     preferences.displayName.trim() || user?.displayName?.trim() || user?.email?.split("@")[0] || "Người dùng";
+  const AvatarIcon = getAvatarOption(preferences.avatar).icon;
 
   const toggleTheme = async () => {
     await updatePreferences({
@@ -114,7 +116,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="mb-2 rounded-xl bg-sidebar-accent/40 px-3 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-lg">
-            {preferences.avatar}
+            <AvatarIcon className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
