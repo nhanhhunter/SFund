@@ -321,10 +321,18 @@ export default function WatchlistPage() {
     if (item.type === "crypto") return cryptoPrices?.[item.symbol];
     if (item.type === "gold") {
       if (item.symbol === "SJC_VND") {
-        return { priceVndLuong: goldData?.SJC?.sell || 0, change: 0, changePercent: 0 };
+        return {
+          priceVndLuong: goldData?.SJC?.sell || 0,
+          change: goldData?.SJC?.change || 0,
+          changePercent: goldData?.SJC?.changePercent || 0,
+        };
       }
       if (item.symbol === "NHAN_VND") {
-        return { priceVndLuong: goldData?.NHAN9999?.sell || 0, change: 0, changePercent: 0 };
+        return {
+          priceVndLuong: goldData?.NHAN9999?.sell || 0,
+          change: goldData?.NHAN9999?.change || 0,
+          changePercent: goldData?.NHAN9999?.changePercent || 0,
+        };
       }
       return goldData?.XAU;
     }

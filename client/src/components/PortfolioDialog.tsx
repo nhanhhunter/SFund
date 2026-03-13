@@ -491,7 +491,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                 name="currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Đơn vị giá</FormLabel>
+                    <FormLabel>Loại tiền</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger data-testid="select-currency">
@@ -508,12 +508,12 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                 )}
               />
               <div className="rounded-xl border border-card-border bg-muted/30 px-3 py-2">
-                <p className="text-xs text-muted-foreground">Tổng hợp tự động</p>
+                <p className="text-xs text-muted-foreground">Tổng hợp</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
-                  {formatHoldingQuantity((purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0))} đơn vị
+                  Tổng Số lượng {formatHoldingQuantity((purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0))}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Giá mua TB {assetCurrency === "USD" ? "$" : "đ"}{" "}
+                  Giá trung bình {assetCurrency === "USD" ? "$" : "đ"}{" "}
                   {(
                     (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0) * (Number(lot?.price) || 0), 0) /
                     Math.max(1, (purchaseLots || []).reduce((sum, lot) => sum + (Number(lot?.quantity) || 0), 0))
@@ -601,7 +601,7 @@ export default function PortfolioDialog({ open, onOpenChange, editItem }: Props)
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Cổ tức đã nhận</p>
-                    <p className="text-xs text-muted-foreground">Khoản này sẽ được cộng vào ROI của cổ phiếu.</p>
+                    <p className="text-xs text-muted-foreground">Cổ tức được cộng vào để tính ROI của cổ phiếu.</p>
                   </div>
                   <Button
                     type="button"

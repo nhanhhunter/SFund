@@ -43,6 +43,7 @@ service cloud.firestore {
           'avgBuyPrice',
           'notes',
           'addedAt',
+          'updatedAt',
         ]) &&
         isString(request.resource.data.id) &&
         isString(request.resource.data.symbol) &&
@@ -57,7 +58,8 @@ service cloud.firestore {
         isNumber(request.resource.data.quantity) &&
         isNumber(request.resource.data.avgBuyPrice) &&
         (!request.resource.data.keys().hasAny(['notes']) || isString(request.resource.data.notes)) &&
-        isString(request.resource.data.addedAt);
+        isString(request.resource.data.addedAt) &&
+        isString(request.resource.data.updatedAt);
     }
 
     function validWatchlistItem() {

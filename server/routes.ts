@@ -58,6 +58,29 @@ function fetchText(url: string, headers: Record<string, string> = {}): Promise<s
   });
 }
 
+function extractBaomoiContent(html: string) {
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!match) return null;
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    return parsed?.props?.pageProps?.resp?.data?.content ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function parseBaomoiDateTime(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!match) return null;
+
+  const [, day, month, year, hour, minute] = match;
+  const iso = `${year}-${month}-${day}T${hour}:${minute}:00+07:00`;
+  const parsed = Date.parse(iso);
+  return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
+}
+
 const priceCache: Map<string, { data: any; ts: number }> = new Map();
 const newsCache: Map<string, { data: any; ts: number }> = new Map();
 const PRICE_TTL = 180_000;
@@ -317,7 +340,7 @@ async function fetchCryptoPrice(ids: string) {
 }
 
 // Fetch real USD/VND rate from Vietcombank XML API
-async function fetchVietcombankRate(): Promise<number> {
+async function fetchVietcombankRate(): Promise<number | null> {
   try {
     const xml = await fetchText("https://portal.vietcombank.com.vn/Usercontrols/TVPortal.TyGia/pXML.aspx?b=10");
     const match = xml.match(/CurrencyCode="USD"[^>]*Sell="([0-9,]+)"/);
@@ -326,12 +349,24 @@ async function fetchVietcombankRate(): Promise<number> {
       if (rate > 20000 && rate < 50000) return rate;
     }
   } catch {}
-  return 26315;
+  return null;
 }
 
-async function fetchBaomoiVietcombankRate(): Promise<number | null> {
+async function fetchBaomoiVietcombankRate(): Promise<{ rate: number; lastUpdated: string | null } | null> {
   try {
     const html = await fetchText("https://baomoi.com/tien-ich-ty-gia-ngoai-te-vietcombank.epi");
+    const content = extractBaomoiContent(html);
+    const entries = Array.isArray(content?.entries) ? content.entries : [];
+    const usdEntry = entries.find((entry: any) => entry?.code === "USD");
+    const sellRate = Number(usdEntry?.sellCash || usdEntry?.sellTransfer || 0);
+
+    if (sellRate > 20000 && sellRate < 50000) {
+      return {
+        rate: sellRate,
+        lastUpdated: parseBaomoiDateTime(content?.lastUpdateTime),
+      };
+    }
+
     const normalized = html.replace(/\s+/g, " ");
     const usdRow =
       normalized.match(/USD\s+Đô la Mỹ\s+([0-9][0-9.,]+)\s+([0-9][0-9.,]+)\s+([0-9][0-9.,]+)/i) ||
@@ -341,7 +376,10 @@ async function fetchBaomoiVietcombankRate(): Promise<number | null> {
     const parsed = candidates?.filter((value) => Number.isFinite(value) && value > 20000 && value < 50000);
 
     if (parsed?.length) {
-      return parsed[parsed.length - 1];
+      return {
+        rate: parsed[parsed.length - 1],
+        lastUpdated: parseBaomoiDateTime(content?.lastUpdateTime),
+      };
     }
   } catch {}
 
@@ -350,18 +388,16 @@ async function fetchBaomoiVietcombankRate(): Promise<number | null> {
 
 async function fetchUsdToVndRate() {
   const baomoiRate = await fetchBaomoiVietcombankRate();
-  const rate = baomoiRate || await fetchVietcombankRate();
+  const xmlRate = baomoiRate ? null : await fetchVietcombankRate();
+  const rate = baomoiRate?.rate ?? xmlRate ?? 0;
   return {
     rate: Math.round(rate),
-    source: baomoiRate ? "Baomoi • Vietcombank" : "Vietcombank XML",
-    lastUpdated: new Date().toISOString(),
+    source: baomoiRate ? "Baomoi • Vietcombank" : xmlRate ? "Vietcombank XML" : "Unavailable",
+    lastUpdated: baomoiRate?.lastUpdated || new Date().toISOString(),
   };
 }
 
-async function fetchVietnamGoldPrices() {
-  const response = await fetchJson("https://www.vang.today/api/prices?action=current");
-  const rows = Array.isArray(response?.data) ? response.data : [];
-
+function mapVietnamGoldPrices(rows: any[], currentTime: unknown) {
   const getItem = (typeCode: string) =>
     rows.find((item: any) => item?.type_code === typeCode);
 
@@ -383,14 +419,30 @@ async function fetchVietnamGoldPrices() {
     SJC: {
       buy: Number(sjc.buy) || 0,
       sell: Number(sjc.sell) || 0,
+      change: Number(sjc.change_sell) || Number(sjc.change_buy) || 0,
+      changePercent: (() => {
+        const sell = Number(sjc.sell) || 0;
+        const change = Number(sjc.change_sell) || Number(sjc.change_buy) || 0;
+        const prev = sell - change;
+        return prev > 0 ? Math.round((change / prev) * 10000) / 100 : 0;
+      })(),
+      currency: "VND",
       source: "vang.today",
-      lastUpdated: toIsoTime(sjc.update_time ?? response?.current_time),
+      lastUpdated: toIsoTime(sjc.update_time ?? currentTime),
     },
     NHAN9999: {
       buy: Number(nhan.buy) || 0,
       sell: Number(nhan.sell) || 0,
+      change: Number(nhan.change_sell) || Number(nhan.change_buy) || 0,
+      changePercent: (() => {
+        const sell = Number(nhan.sell) || 0;
+        const change = Number(nhan.change_sell) || Number(nhan.change_buy) || 0;
+        const prev = sell - change;
+        return prev > 0 ? Math.round((change / prev) * 10000) / 100 : 0;
+      })(),
+      currency: "VND",
       source: "vang.today",
-      lastUpdated: toIsoTime(nhan.update_time ?? response?.current_time),
+      lastUpdated: toIsoTime(nhan.update_time ?? currentTime),
     },
   };
 }
@@ -510,16 +562,16 @@ async function fetchGoldHistoricalSeries(symbol: string, days: number) {
 
 async function fetchGoldPrice() {
   try {
-    const [currentGold, usdToVndData, vnGold] = await Promise.all([
+    const [currentGold, usdToVndData] = await Promise.all([
       fetchVangTodayCurrentPrices(),
       cached(priceCache, "fx_usd_vnd", FX_TTL, fetchUsdToVndRate),
-      fetchVietnamGoldPrices(),
     ]);
     const rows = Array.isArray(currentGold?.data) ? currentGold.data : [];
     const xau = rows.find((item: any) => item?.type_code === "XAUUSD");
     const goldUsdPerOz = Number(xau?.buy) || 0;
     if (!goldUsdPerOz) throw new Error("No gold price");
     const usdToVnd = usdToVndData.rate;
+    const vnGold = mapVietnamGoldPrices(rows, currentGold?.current_time);
     // 1 lượng = 37.5g, 1 troy oz = 31.1035g → 1 lượng = 1.2057 troy oz
     const goldVndPerLuong = goldUsdPerOz * (37.5 / 31.1035) * usdToVnd;
     const worldChangeUsd = Number(xau?.change_buy) || 0;
@@ -560,12 +612,18 @@ async function fetchGoldPrice() {
       SJC: {
         buy: 181100000,
         sell: 184100000,
+        change: 0,
+        changePercent: 0,
+        currency: "VND",
         source: "fallback",
         lastUpdated: new Date().toISOString(),
       },
       NHAN9999: {
         buy: 180800000,
         sell: 183800000,
+        change: 0,
+        changePercent: 0,
+        currency: "VND",
         source: "fallback",
         lastUpdated: new Date().toISOString(),
       },
@@ -616,7 +674,7 @@ async function fetchOilPrice() {
       domesticRetail: {
         ron95vV1: null,
         ron95vV2: null,
-        source: "Baomoi/webgia.com",
+        source: "Baomoi",
         lastUpdated: new Date().toISOString(),
       },
     };
@@ -628,6 +686,23 @@ async function fetchVietnamFuelRetailPrices() {
     const html = await fetchText("https://baomoi.com/tien-ich-gia-xang-dau.epi", {
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     });
+    const content = extractBaomoiContent(html);
+    const entries = Array.isArray(content?.entries) ? content.entries : [];
+    const ron95Entry = entries.find((entry: any) => {
+      const shortName = String(entry?.shortName || "").toLowerCase();
+      const name = String(entry?.name || "").toLowerCase();
+      return shortName === "xang-ron-95-v" || name.includes("ron 95-v");
+    });
+
+    if (ron95Entry) {
+      return {
+        ron95vV1: Number(ron95Entry.priceRegionOne) || null,
+        ron95vV2: Number(ron95Entry.priceRegionTwo) || null,
+        source: "Baomoi",
+        lastUpdated: parseBaomoiDateTime(content?.lastUpdateTime) || new Date().toISOString(),
+      };
+    }
+
     const normalized = html.replace(/\s+/g, " ");
     const updatedAt = normalized.match(/Giá Xăng dầu Ngày ([0-9-]+ [0-9:]+)/i)?.[1] || null;
     const ron95Row =
@@ -637,14 +712,14 @@ async function fetchVietnamFuelRetailPrices() {
     return {
       ron95vV1: ron95Row ? Number(ron95Row[1].replace(/[.,]/g, "")) : null,
       ron95vV2: ron95Row ? Number(ron95Row[2].replace(/[.,]/g, "")) : null,
-      source: "Baomoi/webgia.com",
+      source: "Baomoi",
       lastUpdated: updatedAt ? new Date(updatedAt.replace(" ", "T") + "+07:00").toISOString() : new Date().toISOString(),
     };
   } catch {
     return {
       ron95vV1: null,
       ron95vV2: null,
-      source: "Baomoi/webgia.com",
+      source: "Baomoi",
       lastUpdated: new Date().toISOString(),
     };
   }
@@ -716,7 +791,14 @@ function mapYahooChartToHistorical(data: any) {
         volume: Number(volumes[index] || 0),
       };
     })
-    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    .filter(Boolean) as Array<{
+      time: number;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume: number;
+    }>;
 }
 
 async function fetchUSIndices() {

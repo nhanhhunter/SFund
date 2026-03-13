@@ -181,7 +181,7 @@ export default function GoldPage() {
   const fxSource = usdVndData?.source || "Vietcombank";
 
   const usdOz = gold?.priceUsdOz || 0;
-  const usdToVnd = usdVndData?.rate || gold?.usdToVnd || 26315;
+  const usdToVnd = usdVndData?.rate ?? gold?.usdToVnd ?? 0;
   const { shippingPerOz, insurancePerOz, importTaxPct, processingFeePerLuong } = settings;
 
   const convertedWorldPriceRaw =
@@ -255,7 +255,7 @@ export default function GoldPage() {
             <div>
               <p className="text-amber-600 dark:text-amber-400">Tỷ giá USD/VND</p>
               <p className="font-bold text-amber-800 dark:text-amber-200">
-                {formatNumber(usdToVnd, { maximumFractionDigits: 0 })}
+                {usdToVnd > 0 ? formatNumber(usdToVnd, { maximumFractionDigits: 0 }) : "--"}
               </p>
             </div>
             <div>
@@ -364,7 +364,7 @@ export default function GoldPage() {
         </div>
         <div className="rounded-xl border border-card-border bg-card p-3">
           <p className="mb-1 text-xs text-muted-foreground">USD/VND</p>
-          <p className="text-base font-bold">{formatNumber(usdToVnd, { maximumFractionDigits: 0 })}</p>
+          <p className="text-base font-bold">{usdToVnd > 0 ? formatNumber(usdToVnd, { maximumFractionDigits: 0 }) : "--"}</p>
           <p className="text-xs text-muted-foreground">Tỷ giá VCB bán ra</p>
         </div>
       </div>

@@ -165,6 +165,23 @@ export default function CryptoPage() {
   const selectedCoin = selected ? coins.find((c) => c.id === selected) : null;
   const selectedPrice = selected ? prices?.[selected] : null;
 
+  useEffect(() => {
+    if (coins.length === 0) {
+      if (selected !== null) setSelected(null);
+      return;
+    }
+
+    if (selected === null) {
+      return;
+    }
+
+    if (coins.some((coin) => coin.id === selected)) {
+      return;
+    }
+
+    setSelected(coins[0]?.id || null);
+  }, [coins, selected]);
+
   const removeCoin = (id: string) => {
     const next = coins.filter((c) => c.id !== id);
     setCoins(next);
@@ -281,36 +298,36 @@ export default function CryptoPage() {
       </section>
 
       <div className="space-y-5">
-        <div className="bg-card border border-card-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold">
-              {selectedCoin ? `Biểu đồ giá ${selectedCoin.symbol}` : "Biểu đồ thị trường Crypto"}
-            </h3>
-            <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
-              {(["1", "7", "30"] as Period[]).map((p) => (
-                <button
-                  key={p}
-                  data-testid={`btn-crypto-period-${p}`}
-                  onClick={() => setPeriod(p)}
-                  className={cn(
-                    "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                    period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
-                </button>
-              ))}
+        {selectedCoin ? (
+          <div className="bg-card border border-card-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold">Biểu đồ giá {selectedCoin.symbol}</h3>
+              <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+                {(["1", "7", "30"] as Period[]).map((p) => (
+                  <button
+                    key={p}
+                    data-testid={`btn-crypto-period-${p}`}
+                    onClick={() => setPeriod(p)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                      period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+                  </button>
+                ))}
+              </div>
             </div>
+            <PriceChart
+              type="crypto"
+              symbol={selectedCoin.id}
+              days={days}
+              currentPrice={selectedPrice?.usd || undefined}
+              height={220}
+              color={CRYPTO_COLORS[selectedCoin.id] || "#888"}
+            />
           </div>
-          <PriceChart
-            type="crypto"
-            symbol={selectedCoin?.id || "bitcoin"}
-            days={days}
-            currentPrice={selectedPrice?.usd || undefined}
-            height={220}
-            color={CRYPTO_COLORS[selectedCoin?.id || "bitcoin"] || "#888"}
-          />
-        </div>
+        ) : null}
 
         <div className="bg-card border border-card-border rounded-xl p-4">
           <NewsSection

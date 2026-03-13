@@ -174,7 +174,7 @@ function AssetHistoryDialog({
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">Chưa có khoản cổ tức nào.</p>
+                    <p className="text-sm text-muted-foreground">Chưa có khoản cổ tức nào được ghi nhận.</p>
                   )}
                 </div>
               </div>
@@ -376,7 +376,7 @@ export default function PortfolioPage() {
     },
   });
 
-  const usdToVnd = usdVndData?.rate || goldData?.XAU?.usdToVnd || 26315;
+  const usdToVnd = usdVndData?.rate ?? goldData?.XAU?.usdToVnd ?? 0;
 
   const enriched: EnrichedItem[] = useMemo(() => {
     const getMarketPrice = (item: PortfolioItem): { price: number; currency: AssetCurrency } => {
@@ -409,7 +409,7 @@ export default function PortfolioPage() {
       }
       if (item.type === "gold") {
         if (item.symbol === "XAU_SJC") {
-          return { change: 0, currency: "VND" };
+          return { change: (goldData?.SJC?.change as number) || 0, currency: "VND" };
         }
         return { change: (goldData?.XAU?.change as number) || 0, currency: "VND" };
       }
@@ -589,7 +589,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Danh mục đầu tư</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Làm mới mỗi 3 phút • Tỷ giá USD/VND {usdToVnd.toLocaleString("vi-VN")}
+            Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Làm mới mỗi 3 phút • Tỷ giá USD/VND {usdToVnd > 0 ? usdToVnd.toLocaleString("vi-VN") : "--"}
           </p>
         </div>
         <div className="flex items-center gap-2">

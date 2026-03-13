@@ -133,6 +133,7 @@ Notes:
   - `Vang SJC 9999`
   - `Dau Brent (USD/bbl)`
   - `Dau WTI (USD/bbl)`
+- `Vang SJC 9999` on the Overview page now uses live day change and day change percent from the gold feed instead of a fixed `0` / `0%`.
 - Overview cards are added via inline search inputs instead of a settings modal.
 - Cards can be removed directly from the card itself using the `x` button in the top-right corner.
 - Market and commodity values on the Overview page use the same `,` thousands and `.` decimal separators across cards.
@@ -142,11 +143,14 @@ Notes:
   - `dashboard_crypto_ids`
 
 ### Portfolio
+- The `Them tai san vao danh muc` dialog is implemented in [client/src/components/PortfolioDialog.tsx](client/src/components/PortfolioDialog.tsx).
+- The button that opens that dialog from the Portfolio page is in [client/src/pages/PortfolioPage.tsx](client/src/pages/PortfolioPage.tsx).
 - The asset-list hint `(chon ma de xem chi tiet)` is shown only when no asset is selected.
 - The selected asset detail card can be closed normally after fixing the `onClose` runtime error.
 - Asset detail and price chart are split into separate cards, and the selected asset price chart now sits below the asset list section.
 - Dividend amounts displayed in `USD` are rounded to 2 decimal places in portfolio detail and history views.
 - The summary cards use a more consistent title style and icon treatment.
+- Portfolio writes require Firestore rules that include `updatedAt`; otherwise create/update operations can fail with permission errors.
 - The old `Hieu suat tot nhat` card was replaced by a combined ROI performance card with:
   - `Hieu suat cao`: top 2 assets by ROI
   - `Hieu suat thap`: bottom 2 assets by ROI
@@ -158,9 +162,23 @@ Notes:
   - `Vang the gioi (XAU/USD)`
   - `Vang SJC 9999`
   - `Vang Nhan SJC`
+- `Vang SJC 9999` and `Vang Nhan SJC` watchlist cards now use live day change and day change percent from the gold feed.
 - Oil watchlist options are ordered with `BRENT` before `WTI`.
 - Watchlist cards use an `x` remove action for consistency with other card-based pages.
 - Watchlist mini charts use the shared mini-chart period preference.
+
+### Gold Page
+- Client-side USD/VND display no longer falls back to a fixed `26315`; the page now shows `--` if no live rate is available.
+- SJC and Nhan SJC change data now comes from the same `vang.today` payload used for current prices.
+
+### Oil Page
+- Domestic `Xang RON 95-V (Vung 1)` now prefers Baomoi embedded page data instead of regex-only HTML scraping.
+- The Brent chart is displayed above the WTI chart.
+- The old `Thi truong` summary card was removed.
+
+### Crypto Page
+- The price chart is hidden when no coin is selected.
+- The previous fallback behavior that showed a generic market chart with sample-like values when nothing was selected is no longer used.
 
 ### Stocks Page
 - The `Chi so thi truong` section uses the same index set as the Dashboard:
@@ -272,12 +290,12 @@ Listing/search:
 
 ## Other Data Sources
 - Gold: `vang.today`
-- USD/VND: Vietcombank XML
+- USD/VND: Baomoi Vietcombank page, then Vietcombank XML fallback
 - Oil: Yahoo Finance
+- Vietnam retail fuel price: Baomoi
 - Crypto: CoinGecko
 - US indices: Yahoo Finance chart endpoints consumed directly in Node
 - News: Vietstock RSS
-- USD/VND fallback: Baomoi Vietcombank rate page
 
 Yahoo Finance note:
 
@@ -285,11 +303,12 @@ Yahoo Finance note:
 - The `yfinance` project is a Python wrapper around Yahoo Finance data and is a reasonable backup candidate for research or failover workflows.
 - `yfinance` is not enabled in production by default because this project is deployed as a Node app on Firebase App Hosting, and the main production stock flow intentionally avoids Python runtime dependencies.
 - USD/VND now prefers the Baomoi Vietcombank rate page when available and falls back to the older Vietcombank XML endpoint.
+- The Baomoi parsers read embedded `__NEXT_DATA__` JSON first and only fall back to regex parsing if needed.
 
 Notes:
 
 - Gold, oil, crypto, and VN stock market data are refreshed every 3 minutes in the client.
-- USD/VND is fetched from Vietcombank once and reused across the app session and server cache window because it is treated as fixed intraday for portfolio conversion.
+- USD/VND is cached server-side and reused across the app session for portfolio conversion; client pages should not display a fixed hardcoded fallback rate.
 - Numeric formatting is standardized around `en-US` style separators for market values: `,` for thousands and `.` for decimals.
 
 ## Deployment
@@ -315,6 +334,7 @@ This is required for fields such as:
 - `purchaseLots`
 - `dividends`
 - `notes`
+- `updatedAt`
 
 Deploy command:
 

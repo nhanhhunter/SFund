@@ -50,7 +50,7 @@ export default function OilPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Dầu thô</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Nguồn: Yahoo Finance · Làm mới mỗi 3 phút</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Nguồn: Yahoo Finance, Baomoi · Làm mới mỗi 3 phút</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
           <RefreshCw className="w-3.5 h-3.5" />
@@ -98,14 +98,10 @@ export default function OilPage() {
       </div>
 
       {/* Spread info */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Spread Brent-WTI</p>
           <p className="text-base font-bold">{wti && brent ? `$${(brent.price - wti.price).toFixed(2)}` : "--"}</p>
-        </div>
-        <div className="bg-card border border-card-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">Thị trường</p>
-          <p className="text-base font-bold text-emerald-600">Đang mở</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Xăng RON 95-V (Vùng 1)</p>
@@ -118,20 +114,6 @@ export default function OilPage() {
         <div className="lg:col-span-2 space-y-5">
           <div className="bg-card border border-card-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Biểu đồ WTI (USD/thùng)</h3>
-              <PeriodSelector value={wtiPeriod} onChange={setWtiPeriod} />
-            </div>
-            <PriceChart
-              type="oil"
-              symbol="WTI"
-              days={wtiPeriod === "1" ? 1 : wtiPeriod === "7" ? 7 : 30}
-              currentPrice={wti?.price || undefined}
-              height={200}
-              color="#64748b"
-            />
-          </div>
-          <div className="bg-card border border-card-border rounded-xl p-4">
-            <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold">Biểu đồ Brent (USD/thùng)</h3>
               <PeriodSelector value={brentPeriod} onChange={setBrentPeriod} />
             </div>
@@ -140,8 +122,22 @@ export default function OilPage() {
               symbol="BRENT"
               days={brentPeriod === "1" ? 1 : brentPeriod === "7" ? 7 : 30}
               currentPrice={brent?.price || undefined}
-              height={180}
+              height={200}
               color="#ea580c"
+            />
+          </div>
+          <div className="bg-card border border-card-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold">Biểu đồ WTI (USD/thùng)</h3>
+              <PeriodSelector value={wtiPeriod} onChange={setWtiPeriod} />
+            </div>
+            <PriceChart
+              type="oil"
+              symbol="WTI"
+              days={wtiPeriod === "1" ? 1 : wtiPeriod === "7" ? 7 : 30}
+              currentPrice={wti?.price || undefined}
+              height={180}
+              color="#64748b"
             />
           </div>
         </div>

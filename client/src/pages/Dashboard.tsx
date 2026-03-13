@@ -329,8 +329,8 @@ export default function Dashboard() {
         return {
           label: card.label,
           value: gold?.SJC?.sell ? formatNumber(gold.SJC.sell, { maximumFractionDigits: 0 }) : "--",
-          change: 0,
-          changePercent: 0,
+          change: gold?.SJC?.change || 0,
+          changePercent: gold?.SJC?.changePercent || 0,
           symbol: "SJC_VND",
           chartType: "gold" as const,
           chartCurrentPrice: gold?.SJC?.sell,
