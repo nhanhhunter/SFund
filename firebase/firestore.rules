@@ -73,6 +73,7 @@ service cloud.firestore {
       return hasOnlyKeys([
           'theme',
           'fontFamily',
+          'miniChartPeriod',
           'menuOrder',
           'hiddenMenuItems',
           'displayName',
@@ -81,6 +82,7 @@ service cloud.firestore {
         ]) &&
         request.resource.data.theme in ['light', 'dark'] &&
         request.resource.data.fontFamily in ['editorial', 'sans', 'display'] &&
+        request.resource.data.miniChartPeriod in ['1', '7', '30'] &&
         request.resource.data.menuOrder is list &&
         request.resource.data.hiddenMenuItems is list &&
         request.resource.data.displayName is string &&

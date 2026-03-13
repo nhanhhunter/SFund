@@ -288,8 +288,7 @@ function DetailPanel({ item, type, onClose }: { item: { symbol: string; name?: s
         </span>
       </div>
 
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">Biểu đồ giá</p>
+      <div className="mb-2 flex justify-end">
         <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
           {(["1", "7", "30"] as Period[]).map((p) => (
             <button key={p} onClick={() => setLocalPeriod(p)} className={cn("px-2.5 py-1 text-xs font-medium rounded-md transition-colors", localPeriod === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>

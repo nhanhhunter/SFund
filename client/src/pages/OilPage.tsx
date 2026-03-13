@@ -50,7 +50,7 @@ export default function OilPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Giá Dầu thô</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Nguồn: Yahoo Finance, Baomoi/webgia.com · Làm mới mỗi 3 phút</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Cập nhật lúc {lastUpdate} · Nguồn: Yahoo Finance · Làm mới mỗi 3 phút</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={refresh}>
           <RefreshCw className="w-3.5 h-3.5" />
@@ -98,15 +98,10 @@ export default function OilPage() {
       </div>
 
       {/* Spread info */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Spread Brent-WTI</p>
           <p className="text-base font-bold">{wti && brent ? `$${(brent.price - wti.price).toFixed(2)}` : "--"}</p>
-        </div>
-        <div className="bg-card border border-card-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">WTI (VND/lít)</p>
-          <p className="text-base font-bold">{wti ? `${formatNumber(Math.round((wti.price / 158.987) * 26200), { maximumFractionDigits: 0 })}đ` : "--"}</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">Công thức: WTI USD/thùng ÷ 158.987 × 26,200</p>
         </div>
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Thị trường</p>
@@ -115,7 +110,6 @@ export default function OilPage() {
         <div className="bg-card border border-card-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground mb-1">Xăng RON 95-V (Vùng 1)</p>
           <p className="text-base font-bold">{data?.domesticRetail?.ron95vV1 ? `${formatNumber(data.domesticRetail.ron95vV1, { maximumFractionDigits: 0 })}đ/lít` : "--"}</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">Nguồn: Baomoi/webgia.com</p>
         </div>
       </div>
 

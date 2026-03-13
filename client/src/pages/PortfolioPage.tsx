@@ -26,6 +26,7 @@ import { deletePortfolioItem, listPortfolioItems } from "@/lib/user-data";
 import {
   cn,
   formatCurrency,
+  formatNumber,
   formatPercent,
   formatVnd,
   getChangeBg,

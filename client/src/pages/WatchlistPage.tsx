@@ -206,7 +206,7 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
       </div>
 
       {high || low || volume || change !== null || marketCap ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 text-xs">
+        <div className={cn("gap-2 mb-4 text-xs", item.type === "stock" ? "grid grid-cols-4" : "grid grid-cols-2 sm:grid-cols-3")}>
           {change !== null && change !== undefined ? (
             <div className="bg-muted/50 rounded-lg px-2 py-1.5">
               <p className="text-muted-foreground">Thay đổi</p>
@@ -222,8 +222,7 @@ function DetailDrawer({ item, priceData, onClose }: { item: WatchlistItem; price
         </div>
       ) : null}
 
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">Biểu đồ giá</p>
+      <div className="mb-2 flex justify-end">
         <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
           {(["1", "7", "30"] as Period[]).map((p) => (
             <button key={p} onClick={() => setPeriod(p)} className={cn("px-2.5 py-1 text-xs font-medium rounded-md transition-colors", period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>

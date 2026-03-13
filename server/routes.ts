@@ -61,7 +61,7 @@ function fetchText(url: string, headers: Record<string, string> = {}): Promise<s
 const priceCache: Map<string, { data: any; ts: number }> = new Map();
 const newsCache: Map<string, { data: any; ts: number }> = new Map();
 const PRICE_TTL = 180_000;
-const FX_TTL = 86_400_000;
+const FX_TTL = 180_000;
 const LISTING_TTL = 6 * 60 * 60 * 1000;
 const GOLD_HISTORY_TTL = 300_000;
 const NEWS_TTL = 300_000;
@@ -333,11 +333,12 @@ async function fetchBaomoiVietcombankRate(): Promise<number | null> {
   try {
     const html = await fetchText("https://baomoi.com/tien-ich-ty-gia-ngoai-te-vietcombank.epi");
     const normalized = html.replace(/\s+/g, " ");
-    const usdBlockMatch = normalized.match(/USD[\s\S]{0,800}?([0-9]{2},[0-9]{3})[\s\S]{0,200}?([0-9]{2},[0-9]{3})[\s\S]{0,200}?([0-9]{2},[0-9]{3})/i);
-    const candidates = usdBlockMatch ? usdBlockMatch.slice(1) : normalized.match(/USD[\s\S]{0,800}?([0-9]{2},[0-9]{3})/i)?.slice(1);
-    const parsed = candidates
-      ?.map((value) => Number(value.replace(/,/g, "")))
-      .filter((value) => Number.isFinite(value) && value > 20000 && value < 50000);
+    const usdRow =
+      normalized.match(/USD\s+Đô la Mỹ\s+([0-9][0-9.,]+)\s+([0-9][0-9.,]+)\s+([0-9][0-9.,]+)/i) ||
+      normalized.match(/USD[\s\S]{0,200}?([0-9][0-9.,]+)\s+([0-9][0-9.,]+)\s+([0-9][0-9.,]+)/i);
+
+    const candidates = usdRow?.slice(1).map((value) => Number(value.replace(/[.,]/g, "")));
+    const parsed = candidates?.filter((value) => Number.isFinite(value) && value > 20000 && value < 50000);
 
     if (parsed?.length) {
       return parsed[parsed.length - 1];
@@ -629,11 +630,13 @@ async function fetchVietnamFuelRetailPrices() {
     });
     const normalized = html.replace(/\s+/g, " ");
     const updatedAt = normalized.match(/Giá Xăng dầu Ngày ([0-9-]+ [0-9:]+)/i)?.[1] || null;
-    const ron95Row = normalized.match(/Xăng RON 95-V\s+([0-9,]+)\s+([0-9,]+)/i);
+    const ron95Row =
+      normalized.match(/Xăng RON 95-V\s+([0-9][0-9.,]+)\s+([0-9][0-9.,]+)/i) ||
+      normalized.match(/RON 95-V[\s\S]{0,120}?([0-9][0-9.,]+)\s+([0-9][0-9.,]+)/i);
 
     return {
-      ron95vV1: ron95Row ? Number(ron95Row[1].replace(/,/g, "")) : null,
-      ron95vV2: ron95Row ? Number(ron95Row[2].replace(/,/g, "")) : null,
+      ron95vV1: ron95Row ? Number(ron95Row[1].replace(/[.,]/g, "")) : null,
+      ron95vV2: ron95Row ? Number(ron95Row[2].replace(/[.,]/g, "")) : null,
       source: "Baomoi/webgia.com",
       lastUpdated: updatedAt ? new Date(updatedAt.replace(" ", "T") + "+07:00").toISOString() : new Date().toISOString(),
     };
