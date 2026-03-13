@@ -267,7 +267,7 @@ export default function SettingsPage() {
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">Icon VIP đang hiển thị để xem trước và sẽ mở khóa ở gói nâng cao.</p>
+              <p className="text-xs text-muted-foreground">Icon VIP dành cho người ủng hộ.</p>
             </div>
 
             <Button onClick={() => void handleSaveProfile()} disabled={savingProfile || !displayName.trim()}>
