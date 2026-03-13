@@ -118,6 +118,37 @@ Notes:
 - `updatedAt` is refreshed each time a portfolio item is edited.
 - Stock ROI includes both price change and received dividends.
 
+## Current UI Behavior
+
+### Dashboard
+- Market indices on the Overview page include:
+  - `VN-Index`
+  - `HNX-Index`
+  - `UPCOM`
+  - `S&P 500`
+  - `Dow Jones`
+  - `Nasdaq Composite`
+- Commodity cards on the Overview page are ordered as:
+  - `Vàng (USD/Oz)`
+  - `Vàng SJC 9999`
+  - `Dầu Brent (USD/bbl)`
+  - `Dầu WTI (USD/bbl)`
+- Overview cards are now added via inline search inputs instead of a settings modal.
+- Cards can be removed directly from the card itself using the `x` button in the top-left corner.
+- Dashboard card visibility is persisted in local storage:
+  - `dashboard_index_card_keys`
+  - `dashboard_commodity_card_keys`
+  - `dashboard_crypto_ids`
+
+### Portfolio
+- The asset-list hint `(chọn mã để xem chi tiết)` is shown only when no asset is selected.
+- Asset detail and price chart are split into separate cards so the selected asset card does not stretch the first dashboard row.
+- Dividend amounts displayed in `USD` are rounded to 2 decimal places in portfolio detail/history views.
+- The summary cards use a more consistent title style and icon treatment.
+- The old `Hiệu suất tốt nhất` card was replaced by a combined ROI performance card with:
+  - `Hiệu suất cao`: top 2 assets by ROI
+  - `Hiệu suất thấp`: bottom 2 assets by ROI
+
 Portfolio calculations:
 
 ```text

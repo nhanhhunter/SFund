@@ -65,6 +65,7 @@ const FX_TTL = 86_400_000;
 const LISTING_TTL = 6 * 60 * 60 * 1000;
 const GOLD_HISTORY_TTL = 300_000;
 const NEWS_TTL = 300_000;
+const US_INDEX_SYMBOLS = ["^GSPC", "^DJI", "^IXIC"] as const;
 
 function formatVnstockDate(date: Date, withTime = false) {
   const year = date.getFullYear();
@@ -594,6 +595,135 @@ async function fetchOilPrice() {
   }
 }
 
+function buildSyntheticHistory(endPrice: number, days: number, decimals = 2) {
+  const safeEndPrice = endPrice > 0 ? endPrice : 100;
+  const safeDays = Math.max(1, days);
+  const prices: number[] = [safeEndPrice];
+
+  for (let i = 1; i <= safeDays; i++) {
+    const prev = prices[prices.length - 1];
+    const change = prev * (Math.random() - 0.48) * 0.01;
+    prices.push(Math.max(prev - change, safeEndPrice * 0.8));
+  }
+
+  prices.reverse();
+  const now = Date.now();
+
+  return prices.map((price, i) => {
+    const time = Math.floor((now - (safeDays - i) * 86400000) / 1000);
+    const spread = price * 0.004;
+    const open = price + (Math.random() - 0.5) * spread;
+    const close = price;
+    const high = Math.max(open, close) * (1 + Math.random() * 0.002);
+    const low = Math.min(open, close) * (1 - Math.random() * 0.002);
+
+    return {
+      time,
+      open: Number(open.toFixed(decimals)),
+      high: Number(high.toFixed(decimals)),
+      low: Number(low.toFixed(decimals)),
+      close: Number(close.toFixed(decimals)),
+      volume: 0,
+    };
+  });
+}
+
+async function fetchYahooChart(symbol: string, range: string, interval: string) {
+  const encodedSymbol = encodeURIComponent(symbol);
+  return fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?range=${range}&interval=${interval}`);
+}
+
+function mapYahooChartToHistorical(data: any) {
+  const result = data?.chart?.result?.[0];
+  const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : [];
+  const quote = result?.indicators?.quote?.[0] || {};
+  const opens = Array.isArray(quote?.open) ? quote.open : [];
+  const highs = Array.isArray(quote?.high) ? quote.high : [];
+  const lows = Array.isArray(quote?.low) ? quote.low : [];
+  const closes = Array.isArray(quote?.close) ? quote.close : [];
+  const volumes = Array.isArray(quote?.volume) ? quote.volume : [];
+
+  return timestamps
+    .map((time: number, index: number) => {
+      const open = Number(opens[index]);
+      const high = Number(highs[index]);
+      const low = Number(lows[index]);
+      const close = Number(closes[index]);
+
+      if (![open, high, low, close].every(Number.isFinite)) return null;
+
+      return {
+        time,
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        close: Number(close.toFixed(2)),
+        volume: Number(volumes[index] || 0),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+}
+
+async function fetchUSIndices() {
+  try {
+    const [sp500Data, dowData, nasdaqData] = await Promise.all([
+      fetchYahooChart("^GSPC", "5d", "1d"),
+      fetchYahooChart("^DJI", "5d", "1d"),
+      fetchYahooChart("^IXIC", "5d", "1d"),
+    ]);
+
+    const toQuote = (data: any, fallbackPrice: number) => {
+      const meta = data?.chart?.result?.[0]?.meta || {};
+      const marketPrice = Number(meta.regularMarketPrice);
+      const prevClose = Number(meta.chartPreviousClose);
+      const price = Number.isFinite(marketPrice) ? marketPrice : fallbackPrice;
+      const reference = Number.isFinite(prevClose) && prevClose > 0 ? prevClose : price;
+      const change = price - reference;
+      const changePercent = reference > 0 ? (change / reference) * 100 : 0;
+
+      return {
+        price: Number(price.toFixed(2)),
+        change: Number(change.toFixed(2)),
+        changePercent: Number(changePercent.toFixed(2)),
+        source: "Yahoo Finance",
+        lastUpdated: new Date().toISOString(),
+      };
+    };
+
+    return {
+      "^GSPC": toQuote(sp500Data, 5100),
+      "^DJI": toQuote(dowData, 39000),
+      "^IXIC": toQuote(nasdaqData, 16000),
+    };
+  } catch {
+    return {
+      "^GSPC": { price: 5100, change: 24.8, changePercent: 0.49, source: "fallback", lastUpdated: new Date().toISOString() },
+      "^DJI": { price: 39000, change: 115.4, changePercent: 0.30, source: "fallback", lastUpdated: new Date().toISOString() },
+      "^IXIC": { price: 16000, change: -42.5, changePercent: -0.26, source: "fallback", lastUpdated: new Date().toISOString() },
+    };
+  }
+}
+
+async function fetchUSIndexHistorical(symbol: string, days: number) {
+  const safeSymbol = symbol.toUpperCase();
+  const safeDays = Math.max(1, Math.min(30, days));
+  const range = safeDays <= 1 ? "1d" : safeDays <= 7 ? "7d" : "1mo";
+  const interval = safeDays <= 1 ? "5m" : "1d";
+
+  try {
+    const data = await fetchYahooChart(safeSymbol, range, interval);
+    const mapped = mapYahooChartToHistorical(data);
+    if (mapped.length) return mapped;
+  } catch {}
+
+  const fallbacks: Record<string, number> = {
+    "^GSPC": 5100,
+    "^DJI": 39000,
+    "^IXIC": 16000,
+  };
+  return buildSyntheticHistory(fallbacks[safeSymbol] || 1000, safeDays);
+}
+
 async function fetchVNIndices() {
   try {
     const now = new Date();
@@ -1010,13 +1140,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/market-overview", async (req, res) => {
     try {
-      const [gold, oil, crypto, indices] = await Promise.all([
+      const [gold, oil, crypto, indices, usIndices] = await Promise.all([
         cached(priceCache, "gold", PRICE_TTL, fetchGoldPrice),
         cached(priceCache, "oil", PRICE_TTL, fetchOilPrice),
         cached(priceCache, "crypto_bitcoin,ethereum", PRICE_TTL, () =>
           fetchCryptoPrice("bitcoin,ethereum")
         ),
         cached(priceCache, "vn_indices", PRICE_TTL, fetchVNIndices),
+        cached(priceCache, "us_indices", PRICE_TTL, fetchUSIndices),
       ]);
 
       res.json({
@@ -1026,6 +1157,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         vn30: indices.VN30,
         hnx30: indices.HNX30,
         vn100: indices.VN100,
+        sp500: usIndices["^GSPC"],
+        dowJones: usIndices["^DJI"],
+        nasdaqComposite: usIndices["^IXIC"],
         gold,
         oil,
         crypto,
@@ -1170,6 +1304,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       if (type === "index") {
+        if (US_INDEX_SYMBOLS.includes(symbol.toUpperCase() as (typeof US_INDEX_SYMBOLS)[number])) {
+          const data = await fetchUSIndexHistorical(symbol, days);
+          return res.json(data);
+        }
+
         const now = new Date();
         const start = new Date(now);
         let interval = "1D";

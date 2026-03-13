@@ -415,16 +415,13 @@ export default function SettingsPage() {
               <p className="mb-4 text-sm text-muted-foreground">
                 Nếu SFund hữu ích với bạn, hãy ủng hộ chúng tôi và giúp duy trì tên miền, hosting và các API dùng cho ứng dụng.
               </p>
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4 lg:grid-cols-1">
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <p className="font-medium text-foreground">Momo</p>
                       <p className="text-sm text-muted-foreground">Quét mã hoặc chuyển khoản</p>
                     </div>
-                    <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
-                      Đang hỗ trợ
-                    </span>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-card-border bg-white p-3">
                     <img

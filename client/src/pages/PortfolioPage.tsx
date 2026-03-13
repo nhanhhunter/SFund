@@ -5,13 +5,13 @@ import {
   Pencil,
   Trash2,
   Info,
+  Wallet,
   TrendingUp,
   TrendingDown,
   BarChart3,
   PieChart,
   RefreshCw,
   X,
-  ArrowLeft,
 } from "lucide-react";
 import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import {
@@ -95,6 +95,10 @@ function formatMoney(value: number, currency: AssetCurrency) {
   return currency === "VND" ? formatVnd(Math.round(value)) : formatCurrency(value);
 }
 
+function formatDividendMoney(value: number, currency: AssetCurrency) {
+  return currency === "VND" ? formatVnd(Math.round(value)) : formatCurrency(Number(value.toFixed(2)));
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -156,7 +160,7 @@ function AssetHistoryDialog({
                       <div key={`${dividend.receivedAt}-${index}`} className="grid grid-cols-2 gap-2 rounded-lg border border-card-border p-3 text-sm">
                         <div>
                           <p className="text-xs text-muted-foreground">Giá trị</p>
-                          <p className="font-medium text-foreground">{formatMoney(dividend.amount, item.currency)}</p>
+                          <p className="font-medium text-foreground">{formatDividendMoney(dividend.amount, item.currency)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Ngày nhận</p>
@@ -179,20 +183,11 @@ function AssetHistoryDialog({
 
 function AssetDetailPanel({
   item,
-  onClose,
   onShowHistory,
 }: {
   item: EnrichedItem;
-  onClose: () => void;
   onShowHistory: () => void;
 }) {
-  const [period, setPeriod] = useState<Period>("7");
-  const days = period === "1" ? 1 : period === "7" ? 7 : 30;
-
-  const chartType =
-    item.type === "stock" ? "stock" : item.type === "crypto" ? "crypto" : item.type === "gold" ? "gold" : "oil";
-  const chartSymbol = item.type === "gold" ? "XAU" : item.symbol;
-
   const formatAssetPrice = (value: number) => {
     return formatMoney(value, item.currency);
   };
@@ -201,9 +196,6 @@ function AssetDetailPanel({
     <div className="bg-card border border-card-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-card-border">
         <div className="flex items-center gap-2">
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
-            <ArrowLeft className="w-4 h-4" />
-          </button>
           <div>
             <p className="font-bold text-sm text-foreground">{item.symbol.toUpperCase()}</p>
             <p className="text-xs text-muted-foreground truncate max-w-[180px]">{item.name}</p>
@@ -261,37 +253,51 @@ function AssetDetailPanel({
           {formatAssetPrice(Math.abs(item.totalReturn))} ({formatPercent(item.totalReturnPercent)})
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Gồm {formatAssetPrice(item.dividendsTotal)} cổ tức, tương ứng {formatPercent(item.costBasis > 0 ? (item.dividendsTotal / item.costBasis) * 100 : 0)}
+          Gồm {formatDividendMoney(item.dividendsTotal, item.currency)} cổ tức, tương ứng{" "}
+          {formatPercent(item.costBasis > 0 ? (item.dividendsTotal / item.costBasis) * 100 : 0)}
         </p>
       </div>
+    </div>
+  );
+}
 
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold">Biểu đồ giá</p>
-          <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
-            {(["1", "7", "30"] as Period[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                data-testid={`btn-detail-period-${p}`}
-                className={cn(
-                  "px-2 py-0.5 text-xs font-medium rounded-md transition-colors",
-                  period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
-                )}
-              >
-                {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
-              </button>
-            ))}
-          </div>
+function AssetPriceChartCard({ item }: { item: EnrichedItem }) {
+  const [period, setPeriod] = useState<Period>("7");
+  const days = period === "1" ? 1 : period === "7" ? 7 : 30;
+  const chartType =
+    item.type === "stock" ? "stock" : item.type === "crypto" ? "crypto" : item.type === "gold" ? "gold" : "oil";
+  const chartSymbol = item.type === "gold" ? "XAU" : item.symbol;
+
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          Biểu đồ giá {item.symbol.toUpperCase()}
+        </h3>
+        <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+          {(["1", "7", "30"] as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              data-testid={`btn-detail-period-${p}`}
+              className={cn(
+                "px-2 py-0.5 text-xs font-medium rounded-md transition-colors",
+                period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              {p === "1" ? "1N" : p === "7" ? "7N" : "30N"}
+            </button>
+          ))}
         </div>
-        <PriceChart
-          type={chartType}
-          symbol={chartSymbol}
-          days={days}
-          currentPrice={item.currentPrice || undefined}
-          height={180}
-        />
       </div>
+      <PriceChart
+        type={chartType}
+        symbol={chartSymbol}
+        days={days}
+        currentPrice={item.currentPrice || undefined}
+        height={180}
+      />
     </div>
   );
 }
@@ -501,6 +507,16 @@ export default function PortfolioPage() {
     return formatMoney(item.currentValue, item.currency);
   };
 
+  const performanceLeaders = useMemo(
+    () => [...enriched].sort((a, b) => b.totalReturnPercent - a.totalReturnPercent).slice(0, 2),
+    [enriched],
+  );
+
+  const performanceLaggards = useMemo(
+    () => [...enriched].sort((a, b) => a.totalReturnPercent - b.totalReturnPercent).slice(0, 2),
+    [enriched],
+  );
+
   const sortedEnriched = useMemo(() => {
     const items = [...enriched];
     items.sort((a, b) => {
@@ -566,7 +582,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Danh mục đầu tư</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {portfolio?.length || 0} tài sản • Nguồn: KBS • Cập nhật {stockUpdatedLabel} • USD/VND {usdToVnd.toLocaleString("vi-VN")} • Tự động mới 3 phút
+            Nguồn: KBS • Cập nhật {stockUpdatedLabel} • Tự động cập nhật mỗi 3 phút • Tỷ giá USD/VND {usdToVnd.toLocaleString("vi-VN")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -583,7 +599,10 @@ export default function PortfolioPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-xl p-4 lg:col-span-4">
-          <p className="text-xs text-muted-foreground mb-1">Tổng giá trị danh mục</p>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <Wallet className="w-4 h-4 text-primary" />
+            Tổng giá trị danh mục
+          </h3>
           <div className="text-xl lg:text-2xl font-bold text-foreground">
             {isLoading ? <Skeleton className="h-8 w-32" /> : formatVnd(totalValue)}
           </div>
@@ -593,11 +612,12 @@ export default function PortfolioPage() {
             {formatVnd(Math.abs(totalPricePnl))} ({formatPercent(totalPricePnlPct)})
           </p>
           <p className={cn("text-xs lg:text-sm font-medium mt-1", getChangeColor(totalRoi))}>
+            {totalPricePnl >= 0 ? <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" /> : <TrendingDown className="w-3 h-3 lg:w-3.5 lg:h-3.5" />}
             ROI: {totalRoi >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalRoi))} ({formatPercent(totalRoiPct)})
           </p>
           <p className={cn("text-xs lg:text-sm mt-1", getChangeColor(totalDayPnl))}>
-            Biến động hôm nay: {totalDayPnl >= 0 ? "+" : "-"}
+            Hôm nay: {totalDayPnl >= 0 ? "+" : "-"}
             {formatVnd(Math.abs(totalDayPnl))} ({formatPercent(totalDayPnlPct)})
           </p>
         </div>
@@ -623,34 +643,61 @@ export default function PortfolioPage() {
             <div className="h-[170px] flex items-center justify-center text-muted-foreground text-sm">Chưa có dữ liệu</div>
           )}
         </div>
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-4 space-y-3">
           {selectedItem ? (
             <AssetDetailPanel
               item={selectedItem}
-              onClose={() => setSelectedId(null)}
               onShowHistory={() => setHistoryId(selectedItem.id)}
             />
           ) : enriched.length > 0 ? (
             <div className="bg-card border border-card-border rounded-xl p-4">
-              <h3 className="text-sm font-semibold mb-3">Hiệu suất tốt nhất</h3>
-              <div className="space-y-2">
-                {[...enriched]
-                  .sort((a, b) => b.totalReturnPercent - a.totalReturnPercent)
-                  .slice(0, 4)
-                  .map((item) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
-                        <p className="text-xs text-muted-foreground">{item.name}</p>
+              <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                Hiệu suất ROI
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <p className="text-sm font-semibold text-foreground">Hiệu suất cao</p>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceLeaders.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
+                          <p className="text-xs text-muted-foreground">{item.name}</p>
+                        </div>
+                        <span className={cn("text-sm font-semibold", getChangeColor(item.totalReturnPercent))}>
+                          {formatPercent(item.totalReturnPercent)}
+                        </span>
                       </div>
-                      <span className={cn("text-sm font-semibold", getChangeColor(item.totalReturnPercent))}>
-                        {formatPercent(item.totalReturnPercent)}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown className="w-4 h-4 text-rose-600" />
+                    <p className="text-sm font-semibold text-foreground">Hiệu suất thấp</p>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceLaggards.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-semibold text-foreground">{item.symbol.toUpperCase()}</span>
+                          <p className="text-xs text-muted-foreground">{item.name}</p>
+                        </div>
+                        <span className={cn("text-sm font-semibold", getChangeColor(item.totalReturnPercent))}>
+                          {formatPercent(item.totalReturnPercent)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
+          {selectedItem ? <AssetPriceChartCard item={selectedItem} /> : null}
         </div>
       </div>
 
@@ -661,7 +708,7 @@ export default function PortfolioPage() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
                 Danh sách tài sản
-                {selectedItem && <span className="text-xs text-muted-foreground ml-1">(chọn mã để xem chi tiết)</span>}
+                {!selectedItem && <span className="text-xs text-muted-foreground ml-1">(chọn mã để xem chi tiết)</span>}
               </h3>
               <div className="w-full sm:w-[220px]">
                 <Select value={sortKey} onValueChange={(value) => setSortKey(value as PortfolioSortKey)}>
